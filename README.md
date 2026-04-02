@@ -95,18 +95,9 @@ After restarting, the bot should appear online on Telegram.
 
 To use WhatsApp:
 
-1. Add the secret `WHATSAPP_ENABLED` and set it to `true`.
-2. Once the Space restarts, use the OpenClaw CLI to link your account:
-
-   ```bash
-   npm install -g openclaw@latest
-   openclaw channels login --gateway https://YOUR_SPACE_URL.hf.space --channel whatsapp
-   ```
-
-3. Scan the QR code with your phone (WhatsApp → Linked Devices).
-
-> [!NOTE]
-> HuggingClaw uses dynamic DNS-over-HTTPS probing to ensure reliability on HuggingFace Spaces.
+1. Visit your Space's Dashboard (Port 7861) and click **🚀 Open Control UI**.
+2. In the Control UI, go to **Channels** → **WhatsApp** → **Login**.
+3. Scan the QR code with your phone. 📱
 
 ## 💾 Workspace Backup *(Optional)*
 

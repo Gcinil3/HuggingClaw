@@ -1,50 +1,67 @@
 // Lightweight health server and dashboard on port 7861
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
+const http = require("http");
+const fs = require("fs");
 
 const PORT = process.env.HEALTH_PORT || 7861;
 const startTime = Date.now();
-const LLM_MODEL = process.env.LLM_MODEL || 'Not Set';
-const WHATSAPP_ENABLED = process.env.WHATSAPP_ENABLED === 'true' || process.env.WHATSAPP_ENABLED === '1';
+const LLM_MODEL = process.env.LLM_MODEL || "Not Set";
+const GATEWAY_TOKEN = process.env.GATEWAY_TOKEN || "huggingclaw";
+const SPACE_HOST = process.env.SPACE_HOST || "localhost:7860";
 const TELEGRAM_ENABLED = !!process.env.TELEGRAM_BOT_TOKEN;
 
 const server = http.createServer((req, res) => {
   const uptime = Math.floor((Date.now() - startTime) / 1000);
   const uptimeHuman = `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m`;
 
-  if (req.url === '/health') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      status: 'ok',
-      uptime: uptime,
-      uptimeHuman: uptimeHuman,
-      timestamp: new Date().toISOString()
-    }));
+  if (req.url === "/health") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(
+      JSON.stringify({
+        status: "ok",
+        uptime: uptime,
+        uptimeHuman: uptimeHuman,
+        timestamp: new Date().toISOString(),
+      }),
+    );
     return;
   }
 
-  if (req.url === '/status') {
-    let syncStatus = { status: 'unknown', message: 'No sync data yet' };
+  if (req.url === "/status") {
+    let syncStatus = { status: "unknown", message: "No sync data yet" };
     try {
-      if (fs.existsSync('/tmp/sync-status.json')) {
-        syncStatus = JSON.parse(fs.readFileSync('/tmp/sync-status.json', 'utf8'));
+      if (fs.existsSync("/tmp/sync-status.json")) {
+        syncStatus = JSON.parse(
+          fs.readFileSync("/tmp/sync-status.json", "utf8"),
+        );
       }
     } catch (e) {}
-    
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      model: LLM_MODEL,
-      whatsapp: WHATSAPP_ENABLED,
-      telegram: TELEGRAM_ENABLED,
-      sync: syncStatus,
-      uptime: uptimeHuman
-    }));
+
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(
+      JSON.stringify({
+        model: LLM_MODEL,
+        whatsapp: true,
+        telegram: TELEGRAM_ENABLED,
+        sync: syncStatus,
+        uptime: uptimeHuman,
+        token: GATEWAY_TOKEN,
+      }),
+    );
     return;
   }
 
-  if (req.url === '/') {
-    res.writeHead(200, { 'Content-Type': 'text/html' });
+  // Auto-login redirect to OpenClaw Control UI
+  if (req.url === "/login") {
+    const protocol = req.headers["x-forwarded-proto"] || "http";
+    const host = req.headers["host"] || SPACE_HOST;
+    const target = `${protocol}://${host}/?token=${GATEWAY_TOKEN}`;
+    res.writeHead(302, { Location: target });
+    res.end();
+    return;
+  }
+
+  if (req.url === "/") {
+    res.writeHead(200, { "Content-Type": "text/html" });
     res.end(`
 <!DOCTYPE html>
 <html lang="en">
@@ -153,6 +170,25 @@ const server = http.createServer((req, res) => {
             word-break: break-all;
         }
 
+        .stat-btn {
+            grid-column: span 2;
+            background: var(--accent);
+            color: #fff;
+            padding: 16px;
+            border-radius: 16px;
+            text-align: center;
+            text-decoration: none;
+            font-weight: 600;
+            margin-top: 10px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            box-shadow: 0 10px 20px -5px rgba(59, 130, 246, 0.4);
+        }
+
+        .stat-btn:hover {
+            transform: scale(1.02);
+            box-shadow: 0 15px 30px -5px rgba(59, 130, 246, 0.6);
+        }
+
         .status-badge {
             display: inline-flex;
             align-items: center;
@@ -226,6 +262,7 @@ const server = http.createServer((req, res) => {
                 <span class="stat-label">Telegram</span>
                 <span id="tg-status">Loading...</span>
             </div>
+            <a href="/login" class="stat-btn">🚀 Open Control UI</a>
         </div>
 
         <div class="stat-card" style="width: 100%;">
@@ -297,6 +334,6 @@ const server = http.createServer((req, res) => {
   res.end();
 });
 
-server.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, "0.0.0.0", () => {
   console.log(`🏥 Health server & Dashboard listening on port ${PORT}`);
 });

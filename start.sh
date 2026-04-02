@@ -235,10 +235,8 @@ if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
 fi
 
 # WhatsApp
-if [ "$WHATSAPP_ENABLED" = "true" ] || [ "$WHATSAPP_ENABLED" = "1" ]; then
-  CONFIG_JSON=$(echo "$CONFIG_JSON" | jq '.plugins.entries.whatsapp = {"enabled": true}')
-  CONFIG_JSON=$(echo "$CONFIG_JSON" | jq '.channels.whatsapp = {"dmPolicy": "pairing"}')
-fi
+CONFIG_JSON=$(echo "$CONFIG_JSON" | jq '.plugins.entries.whatsapp = {"enabled": true}')
+CONFIG_JSON=$(echo "$CONFIG_JSON" | jq '.channels.whatsapp = {"dmPolicy": "pairing"}')
 
 # Write config
 echo "$CONFIG_JSON" > "/home/node/.openclaw/openclaw.json"
@@ -255,11 +253,7 @@ printf "  │  %-40s │\n" "Telegram: ✅ enabled"
 else
 printf "  │  %-40s │\n" "Telegram: ❌ not configured"
 fi
-if [ "$WHATSAPP_ENABLED" = "true" ] || [ "$WHATSAPP_ENABLED" = "1" ]; then
 printf "  │  %-40s │\n" "WhatsApp: ✅ enabled"
-else
-printf "  │  %-40s │\n" "WhatsApp: ❌ not configured"
-fi
 if [ -n "$HF_USERNAME" ] && [ -n "$HF_TOKEN" ]; then
 printf "  │  %-40s │\n" "Backup: ✅ ${HF_USERNAME}/${BACKUP_DATASET:-huggingclaw-backup}"
 else
@@ -323,10 +317,17 @@ trap graceful_shutdown SIGTERM SIGINT
 
 # ── Start background services ──
 export LLM_MODEL="$LLM_MODEL"
+# 10. Start Health Server & Dashboard
 node /home/node/app/health-server.js &
-/home/node/app/keep-alive.sh &
+HEALTH_PID=$!
 
-python3 /home/node/app/workspace-sync.py &
+# 11. Start WhatsApp Guardian (Automates pairing)
+node /home/node/app/wa-guardian.js &
+GUARDIAN_PID=$!
+echo "🛡️ WhatsApp Guardian started (PID: $GUARDIAN_PID)"
+
+# 12. Start Workspace Sync
+python3 -u /home/node/app/workspace-sync.py &
 
 # ── Launch gateway ──
 echo "🚀 Launching OpenClaw gateway on port 7860..."
