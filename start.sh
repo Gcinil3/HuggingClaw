@@ -271,6 +271,7 @@ fi
 if [ -n "$SPACE_HOST" ]; then
 printf "  │  %-40s │\n" "Keep-alive: ✅ every ${KEEP_ALIVE_INTERVAL:-300}s"
 printf "  │  %-40s │\n" "Control UI: https://${SPACE_HOST}"
+printf "  │  %-40s │\n" "Dashboard: https://${SPACE_HOST}/dashboard"
 else
 printf "  │  %-40s │\n" "Keep-alive: ⏸️  local mode"
 fi
@@ -325,12 +326,16 @@ export LLM_MODEL="$LLM_MODEL"
 node /home/node/app/health-server.js &
 HEALTH_PID=$!
 
-# 11. Start WhatsApp Guardian (Automates pairing)
+# 11. Start HF keep-alive
+/home/node/app/keep-alive.sh &
+KEEP_ALIVE_PID=$!
+
+# 12. Start WhatsApp Guardian (Automates pairing)
 node /home/node/app/wa-guardian.js &
 GUARDIAN_PID=$!
 echo "🛡️ WhatsApp Guardian started (PID: $GUARDIAN_PID)"
 
-# 12. Start Workspace Sync
+# 13. Start Workspace Sync
 python3 -u /home/node/app/workspace-sync.py &
 
 # ── Launch gateway ──

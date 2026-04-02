@@ -18,8 +18,8 @@ if [ -z "$SPACE_HOST" ]; then
   exit 0
 fi
 
-# Ping the Space URL — any HTTP response (even 404) counts as activity
-PING_URL="https://${SPACE_HOST}"
+# Ping the health endpoint so we keep the Space warm without touching the gateway
+PING_URL="https://${SPACE_HOST}/health"
 
 echo "💓 Keep-alive started: pinging ${PING_URL} every ${INTERVAL}s"
 

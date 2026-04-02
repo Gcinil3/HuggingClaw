@@ -4,7 +4,8 @@ emoji: 🦞
 colorFrom: blue
 colorTo: purple
 sdk: docker
-app_port: 7860
+app_port: 7861
+base_path: /dashboard
 pinned: true
 license: mit
 ---
@@ -95,7 +96,7 @@ After restarting, the bot should appear online on Telegram.
 
 To use WhatsApp:
 
-1. Visit your Space's Dashboard (Port 7861) and click **🚀 Open Control UI**.
+1. Visit your Space URL. It opens the dashboard at `/dashboard` by default, then click **Open Control UI**.
 2. In the Control UI, go to **Channels** → **WhatsApp** → **Login**.
 3. Scan the QR code with your phone. 📱
 
@@ -110,7 +111,7 @@ Optionally set `BACKUP_DATASET_NAME` (default: `huggingclaw-backup`) to choose t
 
 ## 📊 Dashboard & Monitoring
 
-HuggingClaw now features a beautiful web dashboard. Access it by visiting your Space's URL on port 7861 or the internal health endpoint:
+HuggingClaw now features a built-in dashboard at `/dashboard`, served from the same public HF Space URL as the Control UI:
 
 - **Uptime Tracking:** Real-time uptime monitoring.
 - **Sync Status:** Visual indicators for workspace backup operations.
@@ -165,7 +166,7 @@ See `.env.example` for complete settings. Key environment variables:
 | Variable           | Default  | Description                         |
 |--------------------|----------|-------------------------------------|
 | `OPENCLAW_VERSION` | `latest` | Pin a specific OpenClaw version     |
-| `HEALTH_PORT`      | `7861`   | Internal health endpoint port       |
+| `HEALTH_PORT`      | `7861`   | Public dashboard / proxy port on HF Spaces |
 
 ## 🤖 LLM Providers
 
@@ -226,7 +227,7 @@ cp .env.example .env
 
 ```bash
 docker build -t huggingclaw .
-docker run -p 7860:7860 --env-file .env huggingclaw
+docker run -p 7861:7861 --env-file .env huggingclaw
 ```
 
 **Without Docker:**
