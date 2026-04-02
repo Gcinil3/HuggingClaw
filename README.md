@@ -15,7 +15,7 @@ license: mit
 [![HF Space](https://img.shields.io/badge/🤗%20HuggingFace-Space-blue?style=flat-square)](https://huggingface.co/spaces)
 [![OpenClaw](https://img.shields.io/badge/OpenClaw-Gateway-red?style=flat-square)](https://github.com/openclaw/openclaw)
 
-**Your always-on AI assistant — free, no server needed.** HuggingClaw runs [OpenClaw](https://openclaw.ai) on HuggingFace Spaces, giving you a 24/7 AI chat assistant Telegram. It works with *any* large language model (LLM) – Claude, ChatGPT, Gemini, etc. – and even supports custom models via [OpenRouter](https://openrouter.ai). Deploy in minutes on the free HF Spaces tier (2 vCPU, 16GB RAM, 50GB) with automatic workspace backup to a HuggingFace Dataset so your chat history and settings persist across restarts.
+**Your always-on AI assistant — free, no server needed.** HuggingClaw runs [OpenClaw](https://openclaw.ai) on HuggingFace Spaces, giving you a 24/7 AI chat assistant on Telegram and WhatsApp. It works with *any* large language model (LLM) – Claude, ChatGPT, Gemini, etc. – and even supports custom models via [OpenRouter](https://openrouter.ai). Deploy in minutes on the free HF Spaces tier (2 vCPU, 16GB RAM, 50GB) with automatic workspace backup to a HuggingFace Dataset so your chat history and settings persist across restarts.
 
 ## Table of Contents
 
@@ -23,7 +23,10 @@ license: mit
 - [🎥 Video Tutorial](#-video-tutorial)
 - [🚀 Quick Start](#-quick-start)
 - [📱 Telegram Setup *(Optional)*](#-telegram-setup-optional)
+- [💬 WhatsApp Setup *(Optional)*](#-whatsapp-setup-optional)
 - [💾 Workspace Backup *(Optional)*](#-workspace-backup-optional)
+- [📊 Dashboard & Monitoring](#-dashboard--monitoring)
+- [🔔 Webhooks *(Optional)*](#-webhooks-optional)
 - [⚙️ Full Configuration Reference](#-full-configuration-reference)
 - [🤖 LLM Providers](#-llm-providers)
 - [💻 Local Development](#-local-development)
@@ -42,7 +45,9 @@ license: mit
 - 🐳 **Fast Builds:** Uses a pre-built OpenClaw Docker image to deploy in minutes.
 - 💾 **Workspace Backup:** Chats and settings sync to a private HF Dataset via the `huggingface_hub` (Git fallback), preserving data automatically.
 - 💓 **Always-On:** Built-in keep-alive pings prevent the HF Space from sleeping, so the assistant is always online.
-- 👥 **Multi-User Telegram:** Configure one or more user IDs to control who can message the bot.
+- 👥 **Multi-User Messaging:** Support for Telegram (multi-user) and WhatsApp (pairing).
+- 📊 **Visual Dashboard:** Beautiful Web UI to monitor uptime, sync status, and active models.
+- 🔔 **Webhooks:** Get notified on restarts or backup failures via standard webhooks.
 - 🔐 **Flexible Auth:** Secure the Control UI with either a gateway token or password.
 - 🏠 **100% HF-Native:** Runs entirely on HuggingFace’s free infrastructure (2 vCPU, 16GB RAM).
 
@@ -86,6 +91,23 @@ To chat via Telegram:
 
 After restarting, the bot should appear online on Telegram.
 
+## 💬 WhatsApp Setup *(Optional)*
+
+To use WhatsApp:
+
+1. Add the secret `WHATSAPP_ENABLED` and set it to `true`.
+2. Once the Space restarts, use the OpenClaw CLI to link your account:
+
+   ```bash
+   npm install -g openclaw@latest
+   openclaw channels login --gateway https://YOUR_SPACE_URL.hf.space --channel whatsapp
+   ```
+
+3. Scan the QR code with your phone (WhatsApp → Linked Devices).
+
+> [!NOTE]
+> HuggingClaw uses dynamic DNS-over-HTTPS probing to ensure reliability on HuggingFace Spaces.
+
 ## 💾 Workspace Backup *(Optional)*
 
 For persistent chat history and configuration:
@@ -95,73 +117,88 @@ For persistent chat history and configuration:
 
 Optionally set `BACKUP_DATASET_NAME` (default: `huggingclaw-backup`) to choose the HF Dataset name. On first run, HuggingClaw will create (or use) the private Dataset repo `HF_USERNAME/SPACE-backup`, then restore your workspace on startup and sync changes every 10 minutes. The workspace is also saved on graceful shutdown. This ensures your data survives restarts.
 
+## 📊 Dashboard & Monitoring
+
+HuggingClaw now features a beautiful web dashboard. Access it by visiting your Space's URL on port 7861 or the internal health endpoint:
+
+- **Uptime Tracking:** Real-time uptime monitoring.
+- **Sync Status:** Visual indicators for workspace backup operations.
+- **Model Info:** See which LLM is currently powering your assistant.
+
+## 🔔 Webhooks *(Optional)*
+
+Get notified when your Space restarts or if a backup fails:
+
+- Set `WEBHOOK_URL` to your endpoint (e.g., Make.com, IFTTT, Discord Webhook).
+- HuggingClaw sends a POST JSON payload with event details.
+
 ## ⚙️ Full Configuration Reference
 
 See `.env.example` for complete settings. Key environment variables:
 
 ### Core
 
-| Variable       | Description                           |
-|----------------|---------------------------------------|
-| `LLM_API_KEY`  | LLM provider API key (e.g. OpenAI, Anthropic, etc.) |
-| `LLM_MODEL`    | Model ID (prefix `<provider>/`, auto-detected from prefix) |
-| `GATEWAY_TOKEN`| Gateway token for Control UI access (required) |
+| Variable        | Description                                                 |
+|-----------------|-------------------------------------------------------------|
+| `LLM_API_KEY`   | LLM provider API key (e.g. OpenAI, Anthropic, etc.)         |
+| `LLM_MODEL`     | Model ID (prefix `<provider>/`, auto-detected from prefix)  |
+| `GATEWAY_TOKEN` | Gateway token for Control UI access (required)              |
 
 ### Background Services
 
-| Variable             | Default | Description                       |
-|----------------------|---------|-----------------------------------|
-| `KEEP_ALIVE_INTERVAL`| `300`   | Self-ping interval in seconds (0 to disable) |
-| `SYNC_INTERVAL`      | `600`   | Workspace sync interval (sec.) to HF Dataset |
+| Variable              | Default | Description                                 |
+|-----------------------|---------|---------------------------------------------|
+| `KEEP_ALIVE_INTERVAL` | `300`   | Self-ping interval in seconds (0 to disable)|
+| `SYNC_INTERVAL`       | `600`   | Workspace sync interval (sec.) to HF Dataset|
 
 ### Security
 
-| Variable            | Description                                       |
-|---------------------|---------------------------------------------------|
-| `OPENCLAW_PASSWORD` | (optional) Enable simple password auth instead of token |
-| `TRUSTED_PROXIES`   | Comma-separated IPs of HF proxies (for reverse-proxy fixes) |
-| `ALLOWED_ORIGINS`   | Comma-separated allowed origins for Control UI (e.g. `https://your-space.hf.space`) |
+| Variable             | Description                                             |
+|----------------------|---------------------------------------------------------|
+| `OPENCLAW_PASSWORD`  | (optional) Enable simple password auth instead of token |
+| `TRUSTED_PROXIES`    | Comma-separated IPs of HF proxies                       |
+| `ALLOWED_ORIGINS`    | Comma-separated allowed origins for Control UI          |
 
 ### Workspace Backup
 
-| Variable            | Default           | Description                                    |
-|---------------------|-------------------|------------------------------------------------|
-| `HF_USERNAME`       | —                 | Your HuggingFace username                     |
-| `HF_TOKEN`          | —                 | HF token with write access (for backups)       |
-| `BACKUP_DATASET_NAME`| `huggingclaw-backup`| Dataset name for backup repo (auto-created)   |
-| `WORKSPACE_GIT_USER`| `openclaw@example.com` | Git commit email for workspace commits   |
-| `WORKSPACE_GIT_NAME`| `OpenClaw Bot`    | Git commit name for workspace commits          |
+| Variable              | Default              | Description                          |
+|-----------------------|----------------------|--------------------------------------|
+| `HF_USERNAME`         | —                    | Your HuggingFace username            |
+| `HF_TOKEN`            | —                    | HF token with write access           |
+| `BACKUP_DATASET_NAME` | `huggingclaw-backup` | Dataset name for backup repo         |
+| `WORKSPACE_GIT_USER`  | `openclaw@example.com`| Git commit email for workspace sync  |
+| `WORKSPACE_GIT_NAME`  | `OpenClaw Bot`       | Git commit name for workspace sync   |
 
 ### Advanced
 
-| Variable            | Default   | Description                         |
-|---------------------|-----------|-------------------------------------|
-| `OPENCLAW_VERSION`  | `latest`  | Pin a specific OpenClaw version     |
-| `HEALTH_PORT`       | `7861`    | Internal health endpoint port       |
+| Variable           | Default  | Description                         |
+|--------------------|----------|-------------------------------------|
+| `OPENCLAW_VERSION` | `latest` | Pin a specific OpenClaw version     |
+| `HEALTH_PORT`      | `7861`   | Internal health endpoint port       |
 
 ## 🤖 LLM Providers
 
 HuggingClaw supports **all providers** from OpenClaw. Set `LLM_MODEL=<provider/model>` and the provider is auto-detected. For example:
 
-| Provider      | Prefix        | Example Model                  | API Key Source                    |
-|---------------|---------------|--------------------------------|-----------------------------------|
-| **Anthropic** | `anthropic/`  | `anthropic/claude-sonnet-4-6`  | [Anthropic Console](https://console.anthropic.com/) |
-| **OpenAI**    | `openai/`     | `openai/gpt-5.4`               | [OpenAI Platform](https://platform.openai.com/) |
-| **Google**    | `google/`     | `google/gemini-2.5-flash`       | [AI Studio](https://ai.google.dev/) |
-| **DeepSeek**  | `deepseek/`   | `deepseek/deepseek-v3.2`       | [DeepSeek](https://platform.deepseek.com) |
-| **xAI (Grok)**| `xai/`        | `xai/grok-4`                   | [xAI](https://console.x.ai)        |
-| **Mistral**   | `mistral/`    | `mistral/mistral-large-latest` | [Mistral Console](https://console.mistral.ai) |
-| **Moonshot**  | `moonshot/`   | `moonshot/kimi-k2.5`           | [Moonshot](https://platform.moonshot.cn) |
-| **Cohere**    | `cohere/`     | `cohere/command-a`             | [Cohere Dashboard](https://dashboard.cohere.com) |
-| **Groq**      | `groq/`       | `groq/mixtral-8x7b-32768`      | [Groq](https://console.groq.com)    |
-| **MiniMax**   | `minimax/`    | `minimax/minimax-m2.7`         | [MiniMax](https://platform.minimax.io) |
-| **NVIDIA**    | `nvidia/`     | `nvidia/nemotron-3-super-120b-a12b` | [NVIDIA API](https://api.nvidia.com) |
-| **Z.ai (GLM)**| `zai/`        | `zai/glm-5`                    | [Z.ai](https://z.ai)               |
-| **Volcengine**| `volcengine/` | `volcengine/doubao-seed-1-8-251228` | [Volcengine](https://www.volcengine.com) |
-| **HuggingFace**| `huggingface/`| `huggingface/deepseek-ai/DeepSeek-R1` | [HF Tokens](https://huggingface.co/settings/tokens) |
-| **OpenCode Zen**| `opencode/` | `opencode/claude-opus-4-6`      | [OpenCode.ai](https://opencode.ai/auth) |
-| **OpenCode Go**| `opencode-go/`| `opencode-go/kimi-k2.5`       | [OpenCode.ai](https://opencode.ai/auth) |
-| **Kilo Gateway**| `kilocode/` | `kilocode/anthropic/claude-opus-4.6` | [Kilo.ai](https://kilo.ai) |
+| Provider         | Prefix          | Example Model                         | API Key Source                                       |
+|------------------|-----------------|---------------------------------------|------------------------------------------------------|
+| **Anthropic**    | `anthropic/`    | `anthropic/claude-sonnet-4-6`         | [Anthropic Console](https://console.anthropic.com/) |
+| **OpenAI**       | `openai/`       | `openai/gpt-5.4`                      | [OpenAI Platform](https://platform.openai.com/)     |
+| **Google**       | `google/`       | `google/gemini-2.5-flash`             | [AI Studio](https://ai.google.dev/)                  |
+| **DeepSeek**     | `deepseek/`     | `deepseek/deepseek-v3.2`              | [DeepSeek](https://platform.deepseek.com)            |
+| **xAI (Grok)**   | `xai/`          | `xai/grok-4`                          | [xAI](https://console.x.ai)                          |
+| **Mistral**      | `mistral/`      | `mistral/mistral-large-latest`        | [Mistral Console](https://console.mistral.ai)        |
+| **Moonshot**     | `moonshot/`     | `moonshot/kimi-k2.5`                  | [Moonshot](https://platform.moonshot.cn)             |
+| **Cohere**       | `cohere/`       | `cohere/command-a`                    | [Cohere Dashboard](https://dashboard.cohere.com)    |
+| **Groq**         | `groq/`         | `groq/mixtral-8x7b-32768`             | [Groq](https://console.groq.com)                     |
+| **MiniMax**      | `minimax/`      | `minimax/minimax-m2.7`                | [MiniMax](https://platform.minimax.io)               |
+| **NVIDIA**       | `nvidia/`       | `nvidia/nemotron-3-super-120b-a12b`   | [NVIDIA API](https://api.nvidia.com)                |
+| **Z.ai (GLM)**   | `zai/`          | `zai/glm-5`                           | [Z.ai](https://z.ai)                                 |
+| **Volcengine**   | `volcengine/`   | `volcengine/doubao-seed-1-8-251228`   | [Volcengine](https://www.volcengine.com)            |
+| **HuggingFace**  | `huggingface/`  | `huggingface/deepseek-ai/DeepSeek-R1` | [HF Tokens](https://huggingface.co/settings/tokens) |
+| **OpenCode Zen** | `opencode/`     | `opencode/claude-opus-4-6`            | [OpenCode.ai](https://opencode.ai/auth)              |
+| **OpenCode Go**  | `opencode-go/`  | `opencode-go/kimi-k2.5`               | [OpenCode.ai](https://opencode.ai/auth)              |
+| **Kilo Gateway** | `kilocode/`     | `kilocode/anthropic/claude-opus-4.6`  | [Kilo.ai](https://kilo.ai)                           |
 
 ### OpenRouter – 200+ Models with One Key
 

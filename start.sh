@@ -234,6 +234,12 @@ if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
   fi
 fi
 
+# WhatsApp
+if [ "$WHATSAPP_ENABLED" = "true" ] || [ "$WHATSAPP_ENABLED" = "1" ]; then
+  CONFIG_JSON=$(echo "$CONFIG_JSON" | jq '.plugins.entries.whatsapp = {"enabled": true}')
+  CONFIG_JSON=$(echo "$CONFIG_JSON" | jq '.channels.whatsapp = {"dmPolicy": "pairing"}')
+fi
+
 # Write config
 echo "$CONFIG_JSON" > "/home/node/.openclaw/openclaw.json"
 chmod 600 /home/node/.openclaw/openclaw.json
@@ -248,6 +254,11 @@ if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
 printf "  │  %-40s │\n" "Telegram: ✅ enabled"
 else
 printf "  │  %-40s │\n" "Telegram: ❌ not configured"
+fi
+if [ "$WHATSAPP_ENABLED" = "true" ] || [ "$WHATSAPP_ENABLED" = "1" ]; then
+printf "  │  %-40s │\n" "WhatsApp: ✅ enabled"
+else
+printf "  │  %-40s │\n" "WhatsApp: ❌ not configured"
 fi
 if [ -n "$HF_USERNAME" ] && [ -n "$HF_TOKEN" ]; then
 printf "  │  %-40s │\n" "Backup: ✅ ${HF_USERNAME}/${BACKUP_DATASET:-huggingclaw-backup}"
@@ -270,8 +281,19 @@ if [ -n "$HF_USERNAME" ] && [ -n "$HF_TOKEN" ]; then
   SYNC_STATUS="✅ every ${SYNC_INTERVAL:-600}s"
 fi
 printf "  │  %-40s │\n" "Auto-sync: $SYNC_STATUS"
+if [ -n "$WEBHOOK_URL" ]; then
+printf "  │  %-40s │\n" "Webhooks: ✅ enabled"
+fi
 echo "  └──────────────────────────────────────────┘"
 echo ""
+
+# ── Trigger Webhook on Restart ──
+if [ -n "$WEBHOOK_URL" ]; then
+  echo "🔔 Sending restart webhook..."
+  curl -s -X POST "$WEBHOOK_URL" \
+       -H "Content-Type: application/json" \
+       -d '{"event":"restart", "status":"success", "message":"HuggingClaw gateway has started/restarted.", "model": "'"$LLM_MODEL"'"}' >/dev/null 2>&1 &
+fi
 
 # ── Trap SIGTERM for graceful shutdown ──
 graceful_shutdown() {
@@ -300,6 +322,7 @@ graceful_shutdown() {
 trap graceful_shutdown SIGTERM SIGINT
 
 # ── Start background services ──
+export LLM_MODEL="$LLM_MODEL"
 node /home/node/app/health-server.js &
 /home/node/app/keep-alive.sh &
 
@@ -308,8 +331,6 @@ python3 /home/node/app/workspace-sync.py &
 # ── Launch gateway ──
 echo "🚀 Launching OpenClaw gateway on port 7860..."
 echo ""
-# Set model via environment for the gateway
-export LLM_MODEL="$LLM_MODEL"
 
 
 
