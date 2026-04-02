@@ -3,8 +3,8 @@ const http = require("http");
 const fs = require("fs");
 const net = require("net");
 
-const PORT = Number(process.env.HEALTH_PORT || 7861);
-const GATEWAY_PORT = Number(process.env.GATEWAY_PORT || 7860);
+const PORT = 7861;
+const GATEWAY_PORT = 7860;
 const GATEWAY_HOST = "127.0.0.1";
 const startTime = Date.now();
 const LLM_MODEL = process.env.LLM_MODEL || "Not Set";

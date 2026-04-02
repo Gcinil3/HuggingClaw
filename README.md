@@ -75,6 +75,8 @@ Navigate to your new Space's **Settings**, scroll down to the **Variables and se
 > [!TIP]
 > HuggingClaw is completely flexible! You only need these three secrets to get started. You can set other secrets later.
 
+Optional: if you want to pin a specific OpenClaw release instead of `latest`, add `OPENCLAW_VERSION` under **Variables** in your Space settings. For Docker Spaces, HF passes Variables as build args during image build, so this should be a Variable, not a Secret.
+
 ### Step 3: Deploy & Run
 
 That's it! The Space will build the container and start up automatically. You can monitor the build process in the **Logs** tab.
@@ -126,7 +128,7 @@ Get notified when your Space restarts or if a backup fails:
 
 ## ⚙️ Full Configuration Reference
 
-See `.env.example` for complete settings. Key environment variables:
+See `.env.example` for runtime settings. Key configuration values:
 
 ### Core
 
@@ -165,8 +167,7 @@ See `.env.example` for complete settings. Key environment variables:
 
 | Variable           | Default  | Description                         |
 |--------------------|----------|-------------------------------------|
-| `OPENCLAW_VERSION` | `latest` | Pin a specific OpenClaw version     |
-| `HEALTH_PORT`      | `7861`   | Public dashboard / proxy port on HF Spaces |
+| `OPENCLAW_VERSION` | `latest` | Build-time pin for the OpenClaw image tag |
 
 ## 🤖 LLM Providers
 
@@ -226,7 +227,7 @@ cp .env.example .env
 **With Docker:**
 
 ```bash
-docker build -t huggingclaw .
+docker build --build-arg OPENCLAW_VERSION=latest -t huggingclaw .
 docker run -p 7861:7861 --env-file .env huggingclaw
 ```
 
@@ -289,7 +290,7 @@ HuggingClaw keeps the Space awake without external cron tools:
 - **Space keeps sleeping:** Check logs for `Keep-alive` messages. Ensure `KEEP_ALIVE_INTERVAL` isn’t set to `0`.
 - **Auth errors / proxy:** If you see reverse-proxy auth errors, add the logged IPs under `TRUSTED_PROXIES` (from logs `remote=x.x.x.x`).
 - **UI blocked (CORS):** Set `ALLOWED_ORIGINS=https://your-space-name.hf.space`.
-- **Version mismatches:** You can pin a specific OpenClaw version via the `OPENCLAW_VERSION` secret.
+- **Version mismatches:** Pin a specific OpenClaw build with the `OPENCLAW_VERSION` Variable in HF Spaces, or `--build-arg OPENCLAW_VERSION=...` locally.
 
 ## 📚 Links
 

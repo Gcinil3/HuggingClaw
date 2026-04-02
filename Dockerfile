@@ -4,10 +4,12 @@
 # Multi-stage build: uses pre-built OpenClaw image for fast builds
 
 # ── Stage 1: Pull pre-built OpenClaw ──
-FROM ghcr.io/openclaw/openclaw:latest AS openclaw
+ARG OPENCLAW_VERSION=latest
+FROM ghcr.io/openclaw/openclaw:${OPENCLAW_VERSION} AS openclaw
 
 # ── Stage 2: Runtime ──
 FROM node:22-slim
+ARG OPENCLAW_VERSION=latest
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -30,7 +32,7 @@ COPY --from=openclaw --chown=1000:1000 /app /home/node/.openclaw/openclaw-app
 
 # Symlink openclaw CLI so it's available globally
 RUN ln -s /home/node/.openclaw/openclaw-app/openclaw.mjs /usr/local/bin/openclaw 2>/dev/null || \
-    npm install -g openclaw@latest
+    npm install -g openclaw@${OPENCLAW_VERSION}
 
 # Copy HuggingClaw files
 COPY --chown=1000:1000 dns-fix.js /opt/dns-fix.js
@@ -45,6 +47,7 @@ RUN chmod +x /home/node/app/start.sh /home/node/app/keep-alive.sh
 USER node
 
 ENV HOME=/home/node \
+    OPENCLAW_VERSION=${OPENCLAW_VERSION} \
     PATH=/home/node/.local/bin:/usr/local/bin:$PATH \
     NODE_OPTIONS="--require /opt/dns-fix.js"
 

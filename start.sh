@@ -251,6 +251,7 @@ echo ""
 echo "  ┌──────────────────────────────────────────┐"
 echo "  │  📋 Configuration Summary                │"
 echo "  ├──────────────────────────────────────────┤"
+printf "  │  %-40s │\n" "OpenClaw: $OPENCLAW_VERSION"
 printf "  │  %-40s │\n" "Model: $LLM_MODEL"
 if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
 printf "  │  %-40s │\n" "Telegram: ✅ enabled"
