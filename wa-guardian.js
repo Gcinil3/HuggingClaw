@@ -29,6 +29,7 @@ let isWaiting = false;
 let hasShownWaitMessage = false;
 let last515At = 0;
 let lastConnectedAt = 0;
+let shouldStop = false;
 
 function extractErrorMessage(msg) {
   if (!msg || typeof msg !== "object") return "Unknown error";
@@ -118,6 +119,7 @@ async function callRpc(ws, method, params) {
 }
 
 async function checkStatus() {
+  if (shouldStop) return;
   if (isWaiting) return;
   if (lastConnectedAt && Date.now() - lastConnectedAt < SUCCESS_COOLDOWN_MS) return;
 
@@ -171,6 +173,9 @@ async function checkStatus() {
         await callRpc(ws, "config.apply", { raw: getRes.payload.raw, baseHash: getRes.payload.hash });
         console.log("[guardian] Configuration re-applied.");
       }
+
+      shouldStop = true;
+      setTimeout(() => process.exit(0), 1000);
     } else if (!message.includes("No active") && !message.includes("Still waiting")) {
       console.log(`[guardian] Wait result: ${message}`);
     }
