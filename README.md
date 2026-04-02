@@ -49,7 +49,7 @@ license: mit
 - 👥 **Multi-User Messaging:** Support for Telegram (multi-user) and WhatsApp (pairing).
 - 📊 **Visual Dashboard:** Beautiful Web UI to monitor uptime, sync status, and active models.
 - 🔔 **Webhooks:** Get notified on restarts or backup failures via standard webhooks.
-- 🔐 **Flexible Auth:** Secure the Control UI with either a gateway token or password, with automatic token redirect for the web UI.
+- 🔐 **Flexible Auth:** Secure the Control UI with either a gateway token or password.
 - 🏠 **100% HF-Native:** Runs entirely on HuggingFace’s free infrastructure (2 vCPU, 16GB RAM).
 
 ## 🎥 Video Tutorial
@@ -99,10 +99,9 @@ After restarting, the bot should appear online on Telegram.
 To use WhatsApp:
 
 1. Visit your Space URL. It opens the dashboard at `/dashboard` by default, then click **Open Control UI**.
-2. In the Control UI, go to **Channels** → **WhatsApp** → **Login**.
-3. Scan the QR code with your phone. 📱
-
-The Control UI now redirects to `/?token=...` automatically, so you usually won't need to paste `GATEWAY_TOKEN` manually in the browser.
+2. Enter your `GATEWAY_TOKEN` when the Control UI prompts you to log in.
+3. In the Control UI, go to **Channels** → **WhatsApp** → **Login**.
+4. Scan the QR code with your phone. 📱
 
 ## 💾 Workspace Backup *(Optional)*
 
@@ -291,7 +290,7 @@ HuggingClaw keeps the Space awake without external cron tools:
 - **Backup restore failing:** Make sure `HF_USERNAME` and `HF_TOKEN` are correct (token needs write access to your Dataset).
 - **Space keeps sleeping:** Check logs for `Keep-alive` messages. Ensure `KEEP_ALIVE_INTERVAL` isn’t set to `0`.
 - **Auth errors / proxy:** If you see reverse-proxy auth errors, add the logged IPs under `TRUSTED_PROXIES` (from logs `remote=x.x.x.x`).
-- **Control UI says too many failed authentication attempts:** Wait for the retry window to expire, then open the Space in an incognito window or clear site storage for your Space. The root UI now auto-injects the current `GATEWAY_TOKEN`, so a fresh browser session usually fixes stale-token lockouts.
+- **Control UI says too many failed authentication attempts:** Wait for the retry window to expire, then open the Space in an incognito window or clear site storage for your Space before logging in again with `GATEWAY_TOKEN`.
 - **WhatsApp lost its session after restart:** Make sure `HF_USERNAME` and `HF_TOKEN` are configured so the hidden session backup can be restored on boot.
 - **UI blocked (CORS):** Set `ALLOWED_ORIGINS=https://your-space-name.hf.space`.
 - **Version mismatches:** Pin a specific OpenClaw build with the `OPENCLAW_VERSION` Variable in HF Spaces, or `--build-arg OPENCLAW_VERSION=...` locally.

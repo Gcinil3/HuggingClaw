@@ -33,17 +33,8 @@ function isDashboardRoute(pathname) {
   return pathname === "/dashboard" || pathname === "/dashboard/";
 }
 
-function isControlRoute(pathname) {
-  return pathname === "/control" || pathname === "/control/";
-}
-
 function isLocalRoute(pathname) {
-  return (
-    pathname === "/health" ||
-    pathname === "/status" ||
-    isDashboardRoute(pathname) ||
-    isControlRoute(pathname)
-  );
+  return pathname === "/health" || pathname === "/status" || isDashboardRoute(pathname);
 }
 
 function appendForwarded(existingValue, nextValue) {
@@ -387,7 +378,7 @@ function renderDashboard() {
                 <span class="stat-label">Telegram</span>
                 <span id="tg-status">Loading...</span>
             </div>
-            <a href="/control" class="stat-btn">Open Control UI</a>
+            <a href="/" class="stat-btn">Open Control UI</a>
         </div>
 
         <div class="stat-card" style="width: 100%;">
@@ -588,15 +579,6 @@ const server = http.createServer((req, res) => {
   if (isDashboardRoute(pathname)) {
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
     res.end(renderDashboard());
-    return;
-  }
-
-  if ((pathname === "/" || isControlRoute(pathname)) && req.method === "GET" && !parsedUrl.searchParams.get("token") && GATEWAY_TOKEN) {
-    res.writeHead(302, {
-      Location: `/?token=${encodeURIComponent(GATEWAY_TOKEN)}`,
-      "Cache-Control": "no-store",
-    });
-    res.end();
     return;
   }
 
