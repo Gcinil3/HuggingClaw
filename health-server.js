@@ -9,6 +9,7 @@ const GATEWAY_PORT = 7860;
 const GATEWAY_HOST = "127.0.0.1";
 const startTime = Date.now();
 const LLM_MODEL = process.env.LLM_MODEL || "Not Set";
+const SPACE_HOST = process.env.SPACE_HOST || "";
 const TELEGRAM_ENABLED = !!process.env.TELEGRAM_BOT_TOKEN;
 const WHATSAPP_ENABLED = /^true$/i.test(process.env.WHATSAPP_ENABLED || "");
 const WHATSAPP_STATUS_FILE = "/tmp/huggingclaw-wa-status.json";
@@ -112,7 +113,33 @@ function readGuardianStatus() {
   return { configured: true, connected: false, pairing: false };
 }
 
-function renderDashboard() {
+function renderChannelBadge(channel, configuredLabel) {
+  if (channel && channel.connected) {
+    return '<div class="status-badge status-online"><div class="pulse"></div>Active</div>';
+  }
+  if (channel && channel.configured) {
+    return `<div class="status-badge status-syncing">${configuredLabel}</div>`;
+  }
+  return '<div class="status-badge status-offline">Disabled</div>';
+}
+
+function renderSyncBadge(syncData) {
+  let badgeClass = "status-offline";
+  let pulseHtml = "";
+
+  if (syncData.status === "success") {
+    badgeClass = "status-online";
+    pulseHtml = '<div class="pulse"></div>';
+  } else if (syncData.status === "syncing") {
+    badgeClass = "status-syncing";
+    pulseHtml = '<div class="pulse" style="background:#3b82f6"></div>';
+  }
+
+  return `<div class="status-badge ${badgeClass}">${pulseHtml}${String(syncData.status || "unknown").toUpperCase()}</div>`;
+}
+
+function renderDashboard(initialData) {
+  const controlUiHref = SPACE_HOST ? `https://${SPACE_HOST}` : `${DASHBOARD_APP_BASE}/`;
   return `
 <!DOCTYPE html>
 <html lang="en">
@@ -464,29 +491,29 @@ function renderDashboard() {
         <div class="stats-grid">
             <div class="stat-card">
                 <span class="stat-label">Model</span>
-                <span class="stat-value" id="model-id">Loading...</span>
+                <span class="stat-value" id="model-id">${initialData.model}</span>
             </div>
             <div class="stat-card">
                 <span class="stat-label">Uptime</span>
-                <span class="stat-value" id="uptime">Loading...</span>
+                <span class="stat-value" id="uptime">${initialData.uptime}</span>
             </div>
             <div class="stat-card">
                 <span class="stat-label">WhatsApp</span>
-                <span id="wa-status">Loading...</span>
+                <span id="wa-status">${renderChannelBadge(initialData.whatsapp, 'Ready to pair')}</span>
             </div>
             <div class="stat-card">
                 <span class="stat-label">Telegram</span>
-                <span id="tg-status">Loading...</span>
+                <span id="tg-status">${renderChannelBadge(initialData.telegram, 'Configured')}</span>
             </div>
-            <a href="${DASHBOARD_APP_BASE}/" class="stat-btn">Open Control UI</a>
+            <a href="${controlUiHref}" id="control-ui-link" class="stat-btn">Open Control UI</a>
         </div>
 
         <div class="stat-card" style="width: 100%;">
             <span class="stat-label">Workspace Sync Status</span>
-            <div id="sync-badge-container"></div>
+            <div id="sync-badge-container">${renderSyncBadge(initialData.sync)}</div>
             <div class="sync-info">
-                Last Sync Activity: <span id="sync-time">Never</span>
-                <span id="sync-msg">Initializing synchronization...</span>
+                Last Sync Activity: <span id="sync-time">${initialData.sync.timestamp || "Never"}</span>
+                <span id="sync-msg">${initialData.sync.message || "Waiting for first sync..."}</span>
             </div>
         </div>
 
@@ -532,9 +559,14 @@ function renderDashboard() {
     </div>
 
     <script>
+        function getDashboardBase() {
+            const pathname = window.location.pathname || '${DASHBOARD_BASE}';
+            return pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
+        }
+
         async function updateStats() {
             try {
-                const res = await fetch('${DASHBOARD_STATUS_PATH}');
+                const res = await fetch(getDashboardBase() + '/status');
                 const data = await res.json();
 
                 document.getElementById('model-id').textContent = data.model;
@@ -624,7 +656,7 @@ function renderDashboard() {
             result.textContent = '';
 
             try {
-                const res = await fetch('${DASHBOARD_UPTIMEROBOT_PATH}', {
+                const res = await fetch(getDashboardBase() + '/uptimerobot/setup', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ apiKey })
@@ -944,8 +976,20 @@ const server = http.createServer((req, res) => {
   }
 
   if (isDashboardRoute(pathname)) {
+    const guardianStatus = readGuardianStatus();
+    const initialData = {
+      model: LLM_MODEL,
+      whatsapp: {
+        configured: guardianStatus.configured,
+        connected: guardianStatus.connected,
+        pairing: guardianStatus.pairing,
+      },
+      telegram: normalizeChannelStatus(null, TELEGRAM_ENABLED),
+      sync: readSyncStatus(),
+      uptime: uptimeHuman,
+    };
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-    res.end(renderDashboard());
+    res.end(renderDashboard(initialData));
     return;
   }
 
