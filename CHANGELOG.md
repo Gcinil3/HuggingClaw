@@ -2,9 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.0] - 2026-04-03
+
+### Added
+
+- **Dashboard-based UptimeRobot setup** — users can now paste their UptimeRobot Main API key directly in the dashboard and create an external uptime monitor
+- **Optional WhatsApp mode** — WhatsApp now stays fully disabled unless `WHATSAPP_ENABLED=true`
+
+### Changed
+
+- **Documentation simplified** — README now explains the simple dashboard flow for external keep-alive, which key to use, and where to paste it
+
+### Removed
+
+- **Internal self-ping keep-alive** — removed `keep-alive.sh` and all startup wiring because internal self-pings do not reliably prevent free-tier HF Space sleep
+
 ## [1.1.0] - 2026-03-31
 
 ### Added
+
 - **Pre-built Docker image** — uses `ghcr.io/openclaw/openclaw:latest` multi-stage build for much faster builds (minutes instead of 30+)
 - **Python huggingface_hub sync** — `workspace-sync.py` uses the `huggingface_hub` library for more reliable HF Dataset sync (handles auth, LFS, retries). Falls back to git-based sync automatically
 - **Password auth** — `OPENCLAW_PASSWORD` for simpler login (optional alternative to token)
@@ -14,6 +30,7 @@ All notable changes to this project will be documented in this file.
 - **OpenCode Zen/Go** — support for OpenCode's tested model service
 
 ### Changed
+
 - Provider detection now uses `case` statement (cleaner, faster) with correct OpenClaw provider IDs
 - Model IDs now sourced from OpenClaw docs (not OpenRouter) for accuracy
 - Google API key env var corrected to `GEMINI_API_KEY`
@@ -23,6 +40,7 @@ All notable changes to this project will be documented in this file.
 ### 🎉 Initial Release
 
 #### Features
+
 - **Any LLM provider** — Anthropic (Claude), OpenAI (GPT-4), Google (Gemini)
 - **Telegram integration** — connect via @BotFather, supports multiple users
 - **Built-in keep-alive** — self-pings to prevent HF Spaces 48h sleep
@@ -36,8 +54,8 @@ All notable changes to this project will be documented in this file.
 - **Zero-config defaults** — just 2 secrets to get started
 
 #### Architecture
+
 - `start.sh` — config generator + validation + orchestrator
-- `keep-alive.sh` — self-ping background service
 - `workspace-sync.sh` — periodic workspace backup
 - `health-server.js` — lightweight health endpoint
 - `dns-fix.js` — DNS override for HF network restrictions

@@ -44,7 +44,7 @@ license: mit
 - ⚡ **Zero Config:** Duplicate this Space and set **just three** secrets (LLM_API_KEY, LLM_MODEL, GATEWAY_TOKEN) – no other setup needed.
 - 🐳 **Fast Builds:** Uses a pre-built OpenClaw Docker image to deploy in minutes.
 - 💾 **Workspace Backup:** Chats, settings, and WhatsApp session state sync to a private HF Dataset via the `huggingface_hub` (Git fallback), preserving data automatically.
-- 💓 **Always-On:** Built-in keep-alive pings prevent the HF Space from sleeping, so the assistant is always online.
+- ⏰ **External Keep-Alive:** Set up a one-time UptimeRobot monitor from the dashboard to help keep free HF Spaces awake.
 - 👥 **Multi-User Messaging:** Support for Telegram (multi-user) and WhatsApp (pairing).
 - 📊 **Visual Dashboard:** Beautiful Web UI to monitor uptime, sync status, and active models.
 - 🔔 **Webhooks:** Get notified on restarts or backup failures via standard webhooks.
@@ -127,9 +127,9 @@ For persistent chat history and configuration, HuggingClaw can sync your workspa
 > [!TIP]
 > This backup also stores a hidden copy of your WhatsApp session credentials, allowing paired logins to survive Space restarts automatically.
 
-## ⏰ External Keep-Alive *(Recommended on Free HF Spaces)*
+## 💓 Staying Alive *(Recommended on Free HF Spaces)*
 
-Free Hugging Face Spaces can still sleep. To keep your Space awake, set up an external UptimeRobot monitor from the dashboard.
+Free Hugging Face Spaces can still sleep. HuggingClaw does not rely on internal self-pings anymore. To help keep your Space awake, set up an external UptimeRobot monitor from the dashboard.
 
 Use the **Main API key** from UptimeRobot.
 Do **not** use the `Read-only API key` or a `Monitor-specific API key`.
@@ -254,7 +254,6 @@ openclaw channels login --gateway https://YOUR_SPACE_NAME.hf.space
 HuggingClaw/
 ├── Dockerfile          # Multi-stage build using pre-built OpenClaw image
 ├── start.sh            # Config generator, validator, and orchestrator
-├── keep-alive.sh       # Self-ping to prevent HF Space sleep
 ├── workspace-sync.py   # Syncs workspace to HF Datasets (with Git fallback)
 ├── health-server.js    # /health endpoint for uptime checks
 ├── dns-fix.js          # DNS-over-HTTPS fallback (for blocked domains)
@@ -268,29 +267,17 @@ HuggingClaw/
 4. Restore workspace from HF Dataset.
 5. Generate `openclaw.json` from environment variables.
 6. Print startup summary.
-7. Launch background tasks (keep-alive, auto-sync).
+7. Launch background tasks (auto-sync and optional channel helpers).
 8. Launch the OpenClaw gateway (start listening).
 9. On `SIGTERM`, save workspace and exit cleanly.
 ```
-
-## 💓 Staying Alive
-
-HuggingClaw keeps the Space awake without external cron tools:
-
-- **Self-ping:** It periodically sends HTTP requests to its own URL (default every 5 minutes).  
-- **Health endpoint:** `/health` returns `200 OK` and uptime info.  
-- **No external deps:** Fully managed within HF Spaces (no outside pingers or servers).
-
-| Variable | Default | Description |
-| :--- | :--- | :--- |
-| `KEEP_ALIVE_INTERVAL` | `300` | Self-ping interval in seconds (0 to disable) |
 
 ## 🐛 Troubleshooting
 
 - **Missing secrets:** Ensure `LLM_API_KEY`, `LLM_MODEL`, and `GATEWAY_TOKEN` are set in your Space **Settings → Secrets**.
 - **Telegram bot issues:** Verify your `TELEGRAM_BOT_TOKEN`. Check Space logs for lines like `📱 Enabling Telegram`.
 - **Backup restore failing:** Make sure `HF_USERNAME` and `HF_TOKEN` are correct (token needs write access to your Dataset).
-- **Space keeps sleeping:** Check logs for `Keep-alive` messages. Ensure `KEEP_ALIVE_INTERVAL` isn’t set to `0`.
+- **Space keeps sleeping:** Open `/dashboard` and use `Keep Space Awake` to create the external monitor.
 - **Auth errors / proxy:** If you see reverse-proxy auth errors, add the logged IPs under `TRUSTED_PROXIES` (from logs `remote=x.x.x.x`).
 - **Control UI says too many failed authentication attempts:** Wait for the retry window to expire, then open the Space in an incognito window or clear site storage for your Space before logging in again with `GATEWAY_TOKEN`.
 - **WhatsApp lost its session after restart:** Make sure `HF_USERNAME` and `HF_TOKEN` are configured so the hidden session backup can be restored on boot.

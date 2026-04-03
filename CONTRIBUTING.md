@@ -30,7 +30,7 @@ Thanks for your interest in contributing! 🦞
 - Test with at least one LLM provider (Anthropic, OpenAI, or Google)
 - Test with and without Telegram enabled
 - Test with and without workspace backup enabled
-- Verify keep-alive and auto-sync work
+- Verify dashboard setup and auto-sync work
 
 ## Development Setup
 

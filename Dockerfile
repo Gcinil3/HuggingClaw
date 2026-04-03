@@ -39,10 +39,9 @@ COPY --chown=1000:1000 dns-fix.js /opt/dns-fix.js
 COPY --chown=1000:1000 health-server.js /home/node/app/health-server.js
 COPY --chown=1000:1000 iframe-fix.cjs /home/node/app/iframe-fix.cjs
 COPY --chown=1000:1000 start.sh /home/node/app/start.sh
-COPY --chown=1000:1000 keep-alive.sh /home/node/app/keep-alive.sh
 COPY --chown=1000:1000 wa-guardian.js /home/node/app/wa-guardian.js
 COPY --chown=1000:1000 workspace-sync.py /home/node/app/workspace-sync.py
-RUN chmod +x /home/node/app/start.sh /home/node/app/keep-alive.sh
+RUN chmod +x /home/node/app/start.sh
 
 USER node
 

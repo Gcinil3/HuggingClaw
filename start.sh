@@ -331,11 +331,8 @@ else
 printf "  │  %-40s │\n" "Auth: 🔐 token"
 fi
 if [ -n "$SPACE_HOST" ]; then
-printf "  │  %-40s │\n" "Keep-alive: ✅ every ${KEEP_ALIVE_INTERVAL:-300}s"
 printf "  │  %-40s │\n" "Control UI: https://${SPACE_HOST}"
 printf "  │  %-40s │\n" "Dashboard: https://${SPACE_HOST}/dashboard"
-else
-printf "  │  %-40s │\n" "Keep-alive: ⏸️  local mode"
 fi
 SYNC_STATUS="❌ disabled"
 if [ -n "$HF_USERNAME" ] && [ -n "$HF_TOKEN" ]; then
@@ -388,10 +385,6 @@ export LLM_MODEL="$LLM_MODEL"
 node /home/node/app/health-server.js &
 HEALTH_PID=$!
 
-# 11. Start HF keep-alive
-/home/node/app/keep-alive.sh &
-KEEP_ALIVE_PID=$!
-
 # ── Launch gateway ──
 echo "🚀 Launching OpenClaw gateway on port 7860..."
 echo ""
@@ -415,14 +408,14 @@ if ! kill -0 $GATEWAY_PID 2>/dev/null; then
   exit 1
 fi
 
-# 12. Start WhatsApp Guardian after the gateway is accepting connections
+# 11. Start WhatsApp Guardian after the gateway is accepting connections
 if [ "$WHATSAPP_ENABLED_NORMALIZED" = "true" ]; then
   node /home/node/app/wa-guardian.js &
   GUARDIAN_PID=$!
   echo "🛡️ WhatsApp Guardian started (PID: $GUARDIAN_PID)"
 fi
 
-# 13. Start Workspace Sync after startup settles
+# 12. Start Workspace Sync after startup settles
 python3 -u /home/node/app/workspace-sync.py &
 
 # Wait for gateway (allows trap to fire)
