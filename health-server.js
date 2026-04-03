@@ -6,6 +6,7 @@ const net = require("net");
 
 const PORT = 7861;
 const GATEWAY_PORT = 7860;
+const BROWSER_PORT = 7862;
 const GATEWAY_HOST = "127.0.0.1";
 const startTime = Date.now();
 const LLM_MODEL = process.env.LLM_MODEL || "Not Set";
@@ -819,11 +820,11 @@ async function createUptimeRobotMonitor(apiKey, host) {
   };
 }
 
-function proxyHttp(req, res, proxyPath = req.url) {
+function proxyHttp(req, res, proxyPath = req.url, proxyPort = GATEWAY_PORT) {
   const proxyReq = http.request(
     {
       hostname: GATEWAY_HOST,
-      port: GATEWAY_PORT,
+      port: proxyPort,
       method: req.method,
       path: proxyPath,
       headers: buildProxyHeaders(req.headers, req.socket.remoteAddress),
@@ -880,8 +881,8 @@ function serializeUpgradeHeaders(req, remoteAddress) {
   return forwardedHeaders;
 }
 
-function proxyUpgrade(req, socket, head, proxyPath = req.url) {
-  const proxySocket = net.connect(GATEWAY_PORT, GATEWAY_HOST);
+function proxyUpgrade(req, socket, head, proxyPath = req.url, proxyPort = GATEWAY_PORT) {
+  const proxySocket = net.connect(proxyPort, GATEWAY_HOST);
 
   proxySocket.on("connect", () => {
     const requestLines = [
@@ -1014,7 +1015,7 @@ const server = http.createServer((req, res) => {
   if (isDashboardAppRoute(pathname) || isAppRoute(pathname)) {
     const proxyPath =
       stripDashboardAppPrefix(pathname) + (parsedUrl.search || "");
-    proxyHttp(req, res, proxyPath);
+    proxyHttp(req, res, proxyPath, BROWSER_PORT);
     return;
   }
 
@@ -1032,7 +1033,7 @@ server.on("upgrade", (req, socket, head) => {
     const parsedUrl = parseRequestUrl(req.url || "/");
     const proxyPath =
       stripDashboardAppPrefix(pathname) + (parsedUrl.search || "");
-    proxyUpgrade(req, socket, head, proxyPath);
+    proxyUpgrade(req, socket, head, proxyPath, BROWSER_PORT);
     return;
   }
 
