@@ -28,7 +28,7 @@ license: mit
 - [💾 Workspace Backup *(Optional)*](#-workspace-backup-optional)
 - [📊 Dashboard & Monitoring](#-dashboard--monitoring)
 - [🔔 Webhooks *(Optional)*](#-webhooks-optional)
-- [⚙️ Full Configuration Reference](#-full-configuration-reference)
+- [🔐 Security & Advanced *(Optional)*](#-security--advanced-optional)
 - [🤖 LLM Providers](#-llm-providers)
 - [💻 Local Development](#-local-development)
 - [🔗 CLI Access](#-cli-access)
@@ -87,29 +87,37 @@ To chat via Telegram:
 
 1. Create a bot via [@BotFather](https://t.me/BotFather): send `/newbot`, follow prompts, and copy the bot token.
 2. Find your Telegram user ID with [@userinfobot](https://t.me/userinfobot).
-3. Add these secrets in Settings → Secrets:
-   - `TELEGRAM_BOT_TOKEN` – The token from @BotFather.
-   - `TELEGRAM_USER_ID` – Your Telegram user ID (for a single user).
-   - `TELEGRAM_USER_IDS` – Comma-separated user IDs (for team access, e.g. `123,456,789`).
+3. Add these secrets in Settings → Secrets. After restarting, the bot should appear online on Telegram.
 
-After restarting, the bot should appear online on Telegram.
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `TELEGRAM_BOT_TOKEN` | — | Telegram bot token from BotFather |
+| `TELEGRAM_USER_ID` | — | Single Telegram user ID allowlist |
+| `TELEGRAM_USER_IDS` | — | Comma-separated Telegram user IDs for team access |
 
 ## 💬 WhatsApp Setup *(Optional)*
 
-To use WhatsApp:
+To use WhatsApp, enable the channel and scan the QR code from the Control UI (**Channels** → **WhatsApp** → **Login**):
 
-1. Add `WHATSAPP_ENABLED=true` in Hugging Face Space Variables or Secrets.
-2. In the Control UI, go to **Channels** → **WhatsApp** → **Login**.
-3. Scan the QR code with your phone. 📱
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `WHATSAPP_ENABLED` | `false` | Enable WhatsApp pairing support |
 
 ## 💾 Workspace Backup *(Optional)*
 
-For persistent chat history and configuration:
+For persistent chat history and configuration, HuggingClaw can sync your workspace to a private HuggingFace Dataset. On first run, it will automatically create (or use) the Dataset repo `HF_USERNAME/SPACE-backup`, restore your workspace on startup, and sync changes periodically.
 
-- Set `HF_USERNAME` to your HuggingFace username.
-- Set `HF_TOKEN` to a HuggingFace token with write access.
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `HF_USERNAME` | — | Your HuggingFace username |
+| `HF_TOKEN` | — | HF token with write access |
+| `BACKUP_DATASET_NAME` | `huggingclaw-backup` | Dataset name for backup repo |
+| `SYNC_INTERVAL` | `600` | Sync interval in seconds |
+| `WORKSPACE_GIT_USER` | `openclaw@example.com` | Git commit email for syncs |
+| `WORKSPACE_GIT_NAME` | `OpenClaw Bot` | Git commit name for syncs |
 
-Optionally set `BACKUP_DATASET_NAME` (default: `huggingclaw-backup`) to choose the HF Dataset name. On first run, HuggingClaw will create (or use) the private Dataset repo `HF_USERNAME/SPACE-backup`, then restore your workspace on startup and sync changes every 10 minutes. The workspace is also saved on graceful shutdown. If you use WhatsApp, HuggingClaw also stores a hidden backup of the WhatsApp session credentials so paired logins can survive restarts.
+> [!TIP]
+> This backup also stores a hidden copy of your WhatsApp session credentials, allowing paired logins to survive Space restarts automatically.
 
 ## 📊 Dashboard & Monitoring
 
@@ -123,59 +131,19 @@ HuggingClaw now features a built-in dashboard at `/dashboard`, served from the s
 
 Get notified when your Space restarts or if a backup fails:
 
-- Set `WEBHOOK_URL` to your endpoint (e.g., Make.com, IFTTT, Discord Webhook).
-- HuggingClaw sends a POST JSON payload with event details.
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `WEBHOOK_URL` | — | Endpoint URL for POST JSON notifications |
 
-## ⚙️ Full Configuration Reference
+## 🔐 Security & Advanced *(Optional)*
 
-See `.env.example` for runtime settings. Key configuration values:
+Configure password access and network restrictions:
 
-### Core
-
-| Variable        | Description                                                 |
-|-----------------|-------------------------------------------------------------|
-| `LLM_API_KEY`   | LLM provider API key (e.g. OpenAI, Anthropic, etc.)         |
-| `LLM_MODEL`     | Model ID (prefix `<provider>/`, auto-detected from prefix)  |
-| `GATEWAY_TOKEN` | Gateway token for Control UI access (required)              |
-
-### Chat Integrations
-
-| Variable              | Default | Description                                        |
-|-----------------------|---------|----------------------------------------------------|
-| `WHATSAPP_ENABLED`    | `false` | Enable WhatsApp pairing/login support              |
-| `TELEGRAM_BOT_TOKEN`  | —       | Telegram bot token from BotFather                  |
-| `TELEGRAM_USER_ID`    | —       | Single Telegram user ID allowlist                  |
-| `TELEGRAM_USER_IDS`   | —       | Comma-separated Telegram user IDs for team access  |
-
-### Background Services
-
-| Variable              | Default | Description                                 |
-|-----------------------|---------|---------------------------------------------|
-| `KEEP_ALIVE_INTERVAL` | `300`   | Self-ping interval in seconds (0 to disable)|
-| `SYNC_INTERVAL`       | `600`   | Workspace sync interval (sec.) to HF Dataset|
-
-### Security
-
-| Variable             | Description                                             |
-|----------------------|---------------------------------------------------------|
-| `OPENCLAW_PASSWORD`  | (optional) Enable simple password auth instead of token |
-| `TRUSTED_PROXIES`    | Comma-separated IPs of HF proxies                       |
-| `ALLOWED_ORIGINS`    | Comma-separated allowed origins for Control UI          |
-
-### Workspace Backup
-
-| Variable              | Default              | Description                          |
-|-----------------------|----------------------|--------------------------------------|
-| `HF_USERNAME`         | —                    | Your HuggingFace username            |
-| `HF_TOKEN`            | —                    | HF token with write access           |
-| `BACKUP_DATASET_NAME` | `huggingclaw-backup` | Dataset name for backup repo         |
-| `WORKSPACE_GIT_USER`  | `openclaw@example.com`| Git commit email for workspace sync  |
-| `WORKSPACE_GIT_NAME`  | `OpenClaw Bot`       | Git commit name for workspace sync   |
-
-### Advanced
-
-| Variable           | Default  | Description                         |
-|--------------------|----------|-------------------------------------|
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `OPENCLAW_PASSWORD` | — | Enable simple password auth instead of token |
+| `TRUSTED_PROXIES` | — | Comma-separated IPs of HF proxies |
+| `ALLOWED_ORIGINS` | — | Comma-separated allowed origins for Control UI |
 | `OPENCLAW_VERSION` | `latest` | Build-time pin for the OpenClaw image tag |
 
 ## 🤖 LLM Providers
@@ -290,6 +258,10 @@ HuggingClaw keeps the Space awake without external cron tools:
 - **Self-ping:** It periodically sends HTTP requests to its own URL (default every 5 minutes).  
 - **Health endpoint:** `/health` returns `200 OK` and uptime info.  
 - **No external deps:** Fully managed within HF Spaces (no outside pingers or servers).
+
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `KEEP_ALIVE_INTERVAL` | `300` | Self-ping interval in seconds (0 to disable) |
 
 ## 🐛 Troubleshooting
 
