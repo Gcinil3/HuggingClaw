@@ -169,25 +169,19 @@ fi
 
 # ── Restore persisted OpenClaw state (if present) ──
 STATE_BACKUP_ROOT="/home/node/.openclaw/workspace/.huggingclaw-state/openclaw"
-restore_state_dir() {
-  local name="$1"
-  local source_dir="${STATE_BACKUP_ROOT}/${name}"
-  local target_dir="/home/node/.openclaw/${name}"
+if [ -d "$STATE_BACKUP_ROOT" ]; then
+  echo "🧠 Restoring OpenClaw state..."
+  for source_path in "$STATE_BACKUP_ROOT"/*; do
+    [ -e "$source_path" ] || continue
+    name="$(basename "$source_path")"
+    target_path="/home/node/.openclaw/${name}"
 
-  if [ ! -d "$source_dir" ]; then
-    return
-  fi
-
-  echo "🧠 Restoring OpenClaw ${name} state..."
-  rm -rf "$target_dir"
-  mkdir -p "$(dirname "$target_dir")"
-  cp -R "$source_dir" "$target_dir"
-  echo "  ✅ ${name} restored"
-}
-
-restore_state_dir "agents"
-restore_state_dir "memory"
-restore_state_dir "extensions"
+    rm -rf "$target_path"
+    mkdir -p "$(dirname "$target_path")"
+    cp -R "$source_path" "$target_path"
+  done
+  echo "  ✅ OpenClaw state restored"
+fi
 
 # ── Restore persisted WhatsApp credentials (if present) ──
 WA_BACKUP_DIR="/home/node/.openclaw/workspace/.huggingclaw-state/credentials/whatsapp/default"
@@ -414,23 +408,9 @@ graceful_shutdown() {
   echo "🛑 Shutting down gracefully..."
 
   if [ -f "/home/node/app/workspace-sync.py" ]; then
-    echo "🧠 Snapshotting OpenClaw state before exit..."
-    python3 /home/node/app/workspace-sync.py --snapshot-once 2>/dev/null || \
-      echo "  ⚠️ Could not snapshot OpenClaw state before shutdown"
-  fi
-  
-  # Commit any unsaved workspace changes
-  if [ -d "/home/node/.openclaw/workspace/.git" ]; then
-    echo "💾 Saving workspace before exit..."
-    cd /home/node/.openclaw/workspace
-    git add -A 2>/dev/null
-    if ! git diff --cached --quiet 2>/dev/null; then
-      TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-      git commit -m "Shutdown sync ${TIMESTAMP}" 2>/dev/null
-      git push origin main 2>/dev/null && echo "  ✅ Workspace saved!" || echo "  ⚠️ Push failed"
-    else
-      echo "  ✅ No unsaved changes"
-    fi
+    echo "💾 Saving OpenClaw state before exit..."
+    python3 /home/node/app/workspace-sync.py --sync-once || \
+      echo "  ⚠️ Could not complete shutdown sync"
   fi
   
   # Kill background processes
@@ -439,6 +419,26 @@ graceful_shutdown() {
   exit 0
 }
 trap graceful_shutdown SIGTERM SIGINT
+
+warmup_browser() {
+  [ "$BROWSER_SHOULD_ENABLE" = "true" ] || return 0
+
+  (
+    sleep 5
+
+    local attempt
+    for attempt in 1 2 3 4 5; do
+      if openclaw browser --browser-profile openclaw start >/dev/null 2>&1; then
+        openclaw browser --browser-profile openclaw open about:blank >/dev/null 2>&1 || true
+        echo "  ✅ Managed browser ready"
+        return 0
+      fi
+      sleep 2
+    done
+
+    echo "  ⚠️ Managed browser warm-up did not complete; first browser action may need a retry"
+  ) &
+}
 
 # ── Start background services ──
 export LLM_MODEL="$LLM_MODEL"
@@ -475,6 +475,9 @@ if [ "$WHATSAPP_ENABLED_NORMALIZED" = "true" ]; then
   GUARDIAN_PID=$!
   echo "🛡️ WhatsApp Guardian started (PID: $GUARDIAN_PID)"
 fi
+
+# 11.5 Warm up the managed browser so first browser actions have a live tab
+warmup_browser
 
 # 12. Start Workspace Sync after startup settles
 python3 -u /home/node/app/workspace-sync.py &

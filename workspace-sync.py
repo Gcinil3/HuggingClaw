@@ -19,10 +19,11 @@ OPENCLAW_HOME = Path("/home/node/.openclaw")
 WORKSPACE = OPENCLAW_HOME / "workspace"
 STATE_DIR = WORKSPACE / ".huggingclaw-state"
 OPENCLAW_STATE_BACKUP_DIR = STATE_DIR / "openclaw"
-PERSISTED_STATE_PATHS = {
-    "agents": OPENCLAW_HOME / "agents",
-    "memory": OPENCLAW_HOME / "memory",
-    "extensions": OPENCLAW_HOME / "extensions",
+EXCLUDED_STATE_NAMES = {
+    "workspace",
+    "openclaw-app",
+    "gateway.log",
+    "browser",
 }
 WHATSAPP_CREDS_DIR = Path("/home/node/.openclaw/credentials/whatsapp/default")
 WHATSAPP_BACKUP_DIR = STATE_DIR / "credentials" / "whatsapp" / "default"
@@ -61,16 +62,19 @@ def snapshot_state_into_workspace() -> None:
     """
     try:
         STATE_DIR.mkdir(parents=True, exist_ok=True)
+        if OPENCLAW_STATE_BACKUP_DIR.exists():
+            shutil.rmtree(OPENCLAW_STATE_BACKUP_DIR, ignore_errors=True)
+        OPENCLAW_STATE_BACKUP_DIR.mkdir(parents=True, exist_ok=True)
 
-        for name, source_path in PERSISTED_STATE_PATHS.items():
-            if not source_path.exists():
+        for source_path in OPENCLAW_HOME.iterdir():
+            if source_path.name in EXCLUDED_STATE_NAMES:
                 continue
 
-            backup_path = OPENCLAW_STATE_BACKUP_DIR / name
-            backup_path.parent.mkdir(parents=True, exist_ok=True)
-            if backup_path.exists():
-                shutil.rmtree(backup_path, ignore_errors=True)
-            shutil.copytree(source_path, backup_path)
+            backup_path = OPENCLAW_STATE_BACKUP_DIR / source_path.name
+            if source_path.is_dir():
+                shutil.copytree(source_path, backup_path)
+            elif source_path.is_file():
+                shutil.copy2(source_path, backup_path)
     except Exception as e:
         print(f"  ⚠️ Could not snapshot OpenClaw state: {e}")
 
@@ -209,6 +213,50 @@ def main():
     if "--snapshot-once" in sys.argv:
         snapshot_state_into_workspace()
         write_sync_status("configured", "State snapshot refreshed during shutdown.")
+        return
+
+    if "--sync-once" in sys.argv:
+        if not WORKSPACE.exists():
+            print("📁 Workspace sync: workspace not found, exiting.")
+            return
+
+        use_hf_hub = bool(HF_TOKEN and HF_USERNAME)
+        git_dir = WORKSPACE / ".git"
+
+        if not use_hf_hub and not git_dir.exists():
+            print("📁 Workspace sync: no git repo and no HF credentials, skipping.")
+            return
+
+        snapshot_state_into_workspace()
+
+        if not has_changes():
+            print("📁 Workspace sync: no changes to persist.")
+            write_sync_status("configured", "No new state changes to sync.")
+            return
+
+        ts = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        write_sync_status("syncing", f"Shutdown sync started at {ts}")
+
+        if use_hf_hub:
+            if sync_with_hf_hub():
+                print(f"🔄 Workspace sync (hf_hub): pushed changes ({ts})")
+                write_sync_status("success", "Shutdown sync pushed to HF Hub")
+                return
+            if sync_with_git():
+                print(f"🔄 Workspace sync (git fallback): pushed changes ({ts})")
+                write_sync_status("success", "Shutdown sync pushed via git fallback")
+                return
+            write_sync_status("error", "Shutdown sync failed")
+            print("📁 Workspace sync: shutdown sync failed.")
+            return
+
+        if sync_with_git():
+            print(f"🔄 Workspace sync (git): pushed changes ({ts})")
+            write_sync_status("success", "Shutdown sync pushed via git")
+            return
+
+        write_sync_status("error", "Shutdown sync failed")
+        print("📁 Workspace sync: shutdown sync failed.")
         return
 
     if not WORKSPACE.exists():
