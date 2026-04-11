@@ -39,6 +39,9 @@ nohup ollama serve > "$OLLAMA_ROOT/ollama.log" 2>&1 &
 OLLAMA_PID=$!
 echo "🦞 Ollama started (PID: $OLLAMA_PID)"
 
+# Give Ollama a moment to initialize sockets
+sleep 2
+
 # Wait for health endpoint — increase patience (up to 90s)
 echo "⏳ Waiting for Ollama API (/api/health)..."
 for i in {1..90}; do
@@ -59,8 +62,13 @@ for i in {1..90}; do
   sleep 1
 done
 
-# Timeout: show full log
-echo "❌ Ollama failed to start within 90s!"
+
+# Timeout: show full log and check if process is still running
+if ! kill -0 $OLLAMA_PID 2>/dev/null; then
+  echo "❌ Ollama process died!"
+else
+  echo "❌ Ollama failed to start within 90s!"
+fi
 echo "Log output:"
-cat "$OLLAMA_ROOT/ollama.log"
+cat "$OLLAMA_ROOT/ollama.log" 2>/dev/null || echo "(no log file)"
 exit 1

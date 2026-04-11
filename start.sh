@@ -60,15 +60,40 @@ if [ "$OLLAMA_ENABLED" = "true" ]; then
   # Check if using external Ollama or internal
   if [ "$USE_EXTERNAL_OLLAMA" != "true" ]; then
     echo "🚀 Starting internal Ollama server..."
-    /home/node/app/ollama-init.sh
+    
+    # Start Ollama in background and wait for it
+    export OLLAMA_HOST="127.0.0.1:11434"
+    export OLLAMA_NUM_THREADS=1
+    export OLLAMA_MAX_LOADED_MODELS=1
+    export OLLAMA_ROOT="/home/node/.ollama"
+    mkdir -p "$OLLAMA_ROOT" && chmod 700 "$OLLAMA_ROOT"
+    
+    # Start Ollama server
+    echo "🧠 Starting Ollama server..."
+    nohup ollama serve > "$OLLAMA_ROOT/ollama.log" 2>&1 &
+    OLLAMA_PID=$!
+    echo "🦞 Ollama started (PID: $OLLAMA_PID)"
+    
+    # Wait for health endpoint
+    echo "⏳ Waiting for Ollama API..."
+    for i in {1..60}; do
+      if curl -sf "http://127.0.0.1:11434/api/health" > /dev/null 2>&1; then
+        echo "✅ Ollama is healthy!"
+        break
+      fi
+      if [ $i -eq 30 ]; then
+        echo "⚠️  Still waiting... (log: $(tail -1 "$OLLAMA_ROOT/ollama.log" 2>/dev/null || echo 'none'))"
+      fi
+      sleep 1
+    done
     
     # Pull the model if not already present
     echo "⏳ Ensuring Ollama model '$LLM_MODEL' is available..."
-    if ! ollama list | grep -q "^$LLM_MODEL"; then
-      echo "⬇️  Pulling model: $LLM_MODEL"
+    if ! ollama list 2>/dev/null | grep -q "^$LLM_MODEL"; then
+      echo "⬇️  Pulling model: $LLM_MODEL (this may take a while)..."
       ollama pull "$LLM_MODEL" || {
-        echo "⚠️  Failed to pull model $LLM_MODEL. Using available model."
-        ollama list | tail -1 | awk '{print $1}'
+        echo "⚠️  Failed to pull model $LLM_MODEL. Check available models."
+        ollama list 2>/dev/null || echo "Cannot list models"
       }
     else
       echo "✅ Model $LLM_MODEL already available"
@@ -85,7 +110,6 @@ if [ "$OLLAMA_ENABLED" = "true" ]; then
   
   # Set LLM provider to Ollama
   export LLM_PROVIDER="ollama"
-  export OLLAMA_HOST="${OLLAMA_HOST:-$OLLAMA_BASE_URL}"
 else
   echo "☁️  Cloud LLM mode"
   echo "   Model: $LLM_MODEL"
