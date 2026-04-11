@@ -212,5 +212,5 @@ echo "  🦞 HuggingClaw is ready!"
 echo "════════════════════════════════════════════"
 echo ""
 
-# Execute OpenClaw
-exec openclaw gateway --config "$CONFIG_DIR/openclaw.json"
+# Execute OpenClaw (config file path as positional argument)
+exec openclaw gateway "$CONFIG_DIR/openclaw.json"
