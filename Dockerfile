@@ -82,8 +82,8 @@ ENV OLLAMA_MODEL=${OLLAMA_MODEL} \
     PATH=/home/node/.local/bin:/usr/local/bin:$PATH \
     NODE_PATH=/home/node/browser-deps/node_modules \
     NODE_OPTIONS="--require /opt/dns-fix.js" \
-    # For Ollama: disable internal HTTP server (we’ll control it manually)
-    OLLAMA_HOST="0.0.0.0:11434"
+    OLLAMA_HOST="0.0.0.0:11434" \
+    OLLAMA_ENABLED="false"
 
 WORKDIR /home/node/app
 USER node

@@ -2,7 +2,7 @@
 set -e
 
 # ════════════════════════════════════════════════════════════════
-# HuggingClaw — OpenClaw Gateway for HF Spaces
+# HuggingClaw — OpenClaw Gateway for HF Spaces with Ollama Support
 # ════════════════════════════════════════════════════════════════
 
 # ── Startup Banner ──
@@ -10,6 +10,9 @@ OPENCLAW_VERSION="${OPENCLAW_VERSION:-latest}"
 WHATSAPP_ENABLED="${WHATSAPP_ENABLED:-false}"
 WHATSAPP_ENABLED_NORMALIZED=$(printf '%s' "$WHATSAPP_ENABLED" | tr '[:upper:]' '[:lower:]')
 SYNC_INTERVAL="${SYNC_INTERVAL:-180}"
+OLLAMA_ENABLED="${OLLAMA_ENABLED:-false}"
+OLLAMA_MODEL="${OLLAMA_MODEL:-tinyllama}"
+OLLAMA_BASE_URL="${OLLAMA_BASE_URL:-http://localhost:11434}"
 echo ""
 echo "  ╔══════════════════════════════════════════╗"
 echo "  ║          🦞 HuggingClaw Gateway          ║"
@@ -18,34 +21,29 @@ echo ""
 
 # ── Validate required secrets ──
 ERRORS=""
-if [ -z "$LLM_API_KEY" ]; then
-  ERRORS="${ERRORS}  ❌ LLM_API_KEY is not set\n"
+
+# LLM_API_KEY is only required for cloud LLMs — Ollama (local) doesn't need it
+if [ "$OLLAMA_ENABLED" != "true" ] && [ -z "$OLLAMA_BASE_URL" ]; then
+  if [ -z "$LLM_API_KEY" ]; then
+    ERRORS="${ERRORS}  ❌ LLM_API_KEY is not set\n"
+  fi
 fi
-if[ -z "$LLM_MODEL" ]; then
-  ERRORS="${ERRORS}  ❌ LLM_MODEL is not set (e.g. google/gemini-2.5-flash, anthropic/claude-sonnet-4-5, openai/gpt-4)\n"
+
+# Allow Ollama to auto-assign model if not set
+if [ "$OLLAMA_ENABLED" != "true" ]; then
+  if [ -z "$LLM_MODEL" ]; then
+    ERRORS="${ERRORS}  ❌ LLM_MODEL is not set (e.g. google/gemini-2.5-flash, anthropic/claude-sonnet-4-5, openai/gpt-4)\n"
+  fi
+else
+  # Auto-assign default Ollama model
+  export LLM_MODEL="${OLLAMA_MODEL:-tinyllama}"
+  echo "  ⚠️  LLM_MODEL not set — using fallback: $LLM_MODEL (Ollama)"
 fi
-if[ -z "$GATEWAY_TOKEN" ]; then
+
+if [ -z "$GATEWAY_TOKEN" ]; then
   ERRORS="${ERRORS}  ❌ GATEWAY_TOKEN is not set (generate: openssl rand -hex 32)\n"
 fi
- ERRORS=""
- if[ -z "$LLM_API_KEY" ]; then
--  ERRORS="${ERRORS}  ❌ LLM_API_KEY is not set\n"
-+  # LLM_API_KEY is only required for cloud LLMs — Ollama (local) doesn’t need it
-+  if[ "$OLLAMA_ENABLED" != "true" ] && [ -z "$OLLAMA_BASE_URL" ]; then
-+    ERRORS="${ERRORS}  ❌ LLM_API_KEY is not set (required unless using Ollama via OLLAMA_ENABLED=true or OLLAMA_BASE_URL)\n"
-+  fi
- fi
- if [ -z "$LLM_MODEL" ]; then
--  ERRORS="${ERRORS}  ❌ LLM_MODEL is not set (e.g. google/gemini-2.5-flash, anthropic/claude-sonnet-4-5, openai/gpt-4)\n"
-+  # Allow Ollama to auto-assign model if not set
-+  if[ "$OLLAMA_ENABLED" != "true" ]; then
-+    ERRORS="${ERRORS}  ❌ LLM_MODEL is not set (e.g. google/gemini-2.5-flash, anthropic/claude-sonnet-4-5, openai/gpt-4)\n"
-+  else
-+    # Auto-assign default Ollama model
-+    export LLM_MODEL="${OLLAMA_MODEL:-tinyllama}"
-+    echo "  ⚠️  LLM_MODEL not set — using fallback: $LLM_MODEL (Ollama)"
-+  fi
- fi
+
 if [ -n "$ERRORS" ]; then
   echo "Missing required secrets:"
   echo -e "$ERRORS"
@@ -53,555 +51,142 @@ if [ -n "$ERRORS" ]; then
   exit 1
 fi
 
-# ── Set LLM env based on model name ──
-
-# Auto-correct Gemini models to use google/ prefix if anthropic/ was mistakenly used
-if [[ "$LLM_MODEL" == "anthropic/gemini"* ]]; then
-  LLM_MODEL=$(echo "$LLM_MODEL" | sed 's/^anthropic\//google\//')
-  echo "⚠️  Corrected model from anthropic/gemini* to google/gemini*"
-fi
-
-# Extract provider prefix from model name (e.g. "google/gemini-2.5-flash" → "google")
-LLM_PROVIDER=$(echo "$LLM_MODEL" | cut -d'/' -f1)
-
-# Map provider prefix to the correct API key environment variable
-# Based on OpenClaw provider system: /usr/local/lib/node_modules/openclaw/docs/concepts/model-providers.md
-# Note: OpenClaw normalizes some prefixes (z-ai → zai, z.ai → zai, etc.)
-case "$LLM_PROVIDER" in
-  # ── Core Providers ──
-  anthropic)                    export ANTHROPIC_API_KEY="$LLM_API_KEY" ;;
-  openai|openai-codex)          export OPENAI_API_KEY="$LLM_API_KEY" ;;
-  google|google-vertex)         export GEMINI_API_KEY="$LLM_API_KEY" ;;
-  deepseek)                     export DEEPSEEK_API_KEY="$LLM_API_KEY" ;;
-  # ── OpenCode Providers ──
-  opencode)                     export OPENCODE_API_KEY="$LLM_API_KEY" ;;
-  opencode-go)                  export OPENCODE_API_KEY="$LLM_API_KEY" ;;
-  # ── Gateway/Router Providers ──
-  openrouter)                   export OPENROUTER_API_KEY="$LLM_API_KEY" ;;
-  kilocode)                     export KILOCODE_API_KEY="$LLM_API_KEY" ;;
-  vercel-ai-gateway)            export AI_GATEWAY_API_KEY="$LLM_API_KEY" ;;
-  # ── Chinese/Asian Providers ──
-  zai|z-ai|z.ai|zhipu)          export ZAI_API_KEY="$LLM_API_KEY" ;;
-  moonshot)                     export MOONSHOT_API_KEY="$LLM_API_KEY" ;;
-  kimi-coding)                  export KIMI_API_KEY="$LLM_API_KEY" ;;
-  minimax)                      export MINIMAX_API_KEY="$LLM_API_KEY" ;;
-  qwen|modelstudio)             export MODELSTUDIO_API_KEY="$LLM_API_KEY" ;;
-  xiaomi)                       export XIAOMI_API_KEY="$LLM_API_KEY" ;;
-  volcengine|volcengine-plan)   export VOLCANO_ENGINE_API_KEY="$LLM_API_KEY" ;;
-  byteplus|byteplus-plan)       export BYTEPLUS_API_KEY="$LLM_API_KEY" ;;
-  qianfan)                      export QIANFAN_API_KEY="$LLM_API_KEY" ;;
-  # ── Western Providers ──
-  mistral|mistralai)            export MISTRAL_API_KEY="$LLM_API_KEY" ;;
-  xai|x-ai)                    export XAI_API_KEY="$LLM_API_KEY" ;;
-  nvidia)                       export NVIDIA_API_KEY="$LLM_API_KEY" ;;
-  cohere)                       export COHERE_API_KEY="$LLM_API_KEY" ;;
-  groq)                         export GROQ_API_KEY="$LLM_API_KEY" ;;
-  together)                     export TOGETHER_API_KEY="$LLM_API_KEY" ;;
-  huggingface)                  export HUGGINGFACE_HUB_TOKEN="$LLM_API_KEY" ;;
-  cerebras)                     export CEREBRAS_API_KEY="$LLM_API_KEY" ;;
-  venice)                       export VENICE_API_KEY="$LLM_API_KEY" ;;
-  synthetic)                    export SYNTHETIC_API_KEY="$LLM_API_KEY" ;;
-  github-copilot)               export COPILOT_GITHUB_TOKEN="$LLM_API_KEY" ;;
-  # ── Fallback: Anthropic (default) ──
-  *)
-    export ANTHROPIC_API_KEY="$LLM_API_KEY"
-    ;;
-esac
-
-# ── Ollama Configuration (optional) ──
-if[ "$OLLAMA_ENABLED" = "true" ]; then
-  echo "🦙 Setting up Ollama..."
-
-  # Use user-specified model if provided; fallback to LLM_MODEL or default
-  export OLLAMA_MODEL="${OLLAMA_MODEL:-$LLM_MODEL}"
-  if[ -z "$OLLAMA_MODEL" ]; then
-    OLLAMA_MODEL="tinyllama"  # lightweight & fast
-    echo "  ⚠️  OLLAMA_MODEL not set, defaulting to: $OLLAMA_MODEL"
-  fi
-
-  # Determine use mode: internal or external
-  if[ "$USE_EXTERNAL_OLLAMA" = "true" ]; then
-    export OLLAMA_BASE_URL="${OLLAMA_BASE_URL:-http://127.0.0.1:11434}"
-    echo "  ℹ️  Using external Ollama: $OLLAMA_BASE_URL"
+# ── Ollama Setup ──
+if [ "$OLLAMA_ENABLED" = "true" ]; then
+  echo "🧠 Ollama mode enabled"
+  echo "   Model: $LLM_MODEL"
+  echo "   Base URL: $OLLAMA_BASE_URL"
+  
+  # Check if using external Ollama or internal
+  if [ "$USE_EXTERNAL_OLLAMA" != "true" ]; then
+    echo "🚀 Starting internal Ollama server..."
+    /home/node/app/ollama-init.sh
     
-    # Optional health check
-    if curl -sf "$OLLAMA_BASE_URL/api/health" >/dev/null 2>&1; then
-      echo "  ✅ External Ollama health check passed"
-    else
-      echo "  ⚠️  Failed to reach Ollama at $OLLAMA_BASE_URL — ensure it's running!"
-    fi
-  else
-    # Internal Ollama: start & pull
-    export OLLAMA_HOST="${OLLAMA_HOST:-127.0.0.1:11434}"
-
-    # Start Ollama in background (if not already)
-    if ! pgrep -x "ollama" > /dev/null 2>&1; then
-      echo "  🚀 Starting Ollama..."
-      # Ensure `/home/node/.ollama` is writable (we disabled ollama systemd service style)
-      export OLLAMA_ROOT="/home/node/.ollama"
-      mkdir -p "$OLLAMA_ROOT"
-      nohup ollama serve > "$OLLAMA_ROOT/ollama.log" 2>&1 &
-      OLLAMA_PID=$!
-      echo "  🦞 Ollama started (PID: $OLLAMA_PID) at $OLLAMA_HOST"
-    else
-      OLLAMA_PID=""
-      echo "  ℹ️  Ollama already running (skip start)"
-    fi
-
-    # Wait for health (max 120s)
-    echo "  ⏳ Waiting for Ollama health..."
-    for i in {1..120}; do
-      if curl -sf "http://${OLLAMA_HOST%:*}:11434/api/health" >/dev/null 2>&1; then
-        echo "  ✅ Ollama ready at http://${OLLAMA_HOST%:*}:11434"
-        break
-      fi[ $i -eq 120 ] && {
-        echo "  ❌ Ollama failed to start — check logs: $OLLAMA_ROOT/ollama.log"
-        exit 1
+    # Pull the model if not already present
+    echo "⏳ Ensuring Ollama model '$LLM_MODEL' is available..."
+    if ! ollama list | grep -q "^$LLM_MODEL"; then
+      echo "⬇️  Pulling model: $LLM_MODEL"
+      ollama pull "$LLM_MODEL" || {
+        echo "⚠️  Failed to pull model $LLM_MODEL. Using available model."
+        ollama list | tail -1 | awk '{print $1}'
       }
-      sleep 1
-    done
-
-    # Pull model (non-blocking or with timeout)
-    echo "  📥 Pulling model: $OLLAMA_MODEL"
-    # Use timeout to prevent stuck start due to huge pulls
-    timeout 600 ollama pull "$OLLAMA_MODEL" || {
-      echo "  ⚠️  Pull timed out or failed — continuing anyway (model may exist)"
-    }
-
-    # Set endpoint for OpenClaw
-    export OLLAMA_ENDPOINT="http://${OLLAMA_HOST%:*}:11434"
-  fi
-
-  # If LLM_MODEL starts with `ollama/`, override provider (not name)
-  if [[ "$LLM_MODEL" == "ollama/"* ]]; then
-    # Keep user's model, but ensure Ollama endpoint is injected
-    echo "  ✅ Detected model prefix 'ollama/' — will use Ollama endpoint"
-  else
-    # Auto-override for convenience: if OLLAMA_ENABLED=true, assume LLM_MODEL should route to Ollama
-    export LLM_MODEL="ollama/${OLLAMA_MODEL}"
-    echo "  ⚙️  Auto-assigned LLM_MODEL=ollama/${OLLAMA_MODEL}"
-  fi
-fi
-
-# ── Setup directories ──
-mkdir -p /home/node/.openclaw/agents/main/sessions
-mkdir -p /home/node/.openclaw/credentials
-mkdir -p /home/node/.openclaw/memory
-mkdir -p /home/node/.openclaw/extensions
-mkdir -p /home/node/.openclaw/workspace
-chmod 700 /home/node/.openclaw
-chmod 700 /home/node/.openclaw/credentials
-
-# ── Validate HF token (if provided) ──
-if [ -n "$HF_TOKEN" ]; then
-  echo "🔑 Validating HF token..."
-  HF_AUTH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $HF_TOKEN" https://huggingface.co/api/repos/create --max-time 10 2>/dev/null || echo "000")
-  if [ "$HF_AUTH_STATUS" = "401" ]; then
-    echo "  ⚠️  HF token is invalid or expired! Workspace backup will not work."
-    echo "  Get a new token: https://huggingface.co/settings/tokens"
-  else
-    echo "  ✅ HF token is valid"
-  fi
-fi
-
-# ── Auto-create + Restore workspace from HF Dataset ──
-if [ -n "$HF_USERNAME" ] &&[ -n "$HF_TOKEN" ]; then
-  BACKUP_DATASET="${BACKUP_DATASET_NAME:-huggingclaw-backup}"
-  BACKUP_URL="https://${HF_USERNAME}:${HF_TOKEN}@huggingface.co/datasets/${HF_USERNAME}/${BACKUP_DATASET}"
-  
-  # Auto-create the dataset if it doesn't exist
-  echo "📦 Checking HF Dataset: ${HF_USERNAME}/${BACKUP_DATASET}..."
-  DATASET_CHECK=$(curl -s -o /dev/null -w "%{http_code}" \
-    -H "Authorization: Bearer $HF_TOKEN" \
-    "https://huggingface.co/api/datasets/${HF_USERNAME}/${BACKUP_DATASET}" \
-    --max-time 10 2>/dev/null || echo "000")
-  
-  if[ "$DATASET_CHECK" = "404" ]; then
-    echo "  📝 Dataset not found, creating ${HF_USERNAME}/${BACKUP_DATASET}..."
-    CREATE_RESULT=$(curl -s -w "\n%{http_code}" \
-      -X POST "https://huggingface.co/api/repos/create" \
-      -H "Authorization: Bearer $HF_TOKEN" \
-      -H "Content-Type: application/json" \
-      -d "{\"type\":\"dataset\",\"name\":\"${BACKUP_DATASET}\",\"private\":true}" \
-      --max-time 15 2>/dev/null || echo "error")
-    CREATE_STATUS=$(echo "$CREATE_RESULT" | tail -1)
-    if [ "$CREATE_STATUS" = "200" ] ||[ "$CREATE_STATUS" = "201" ]; then
-      echo "  ✅ Dataset created: ${HF_USERNAME}/${BACKUP_DATASET} (private)"
     else
-      echo "  ⚠️  Could not create dataset (HTTP $CREATE_STATUS). Create it manually:"
-      echo "     https://huggingface.co/datasets/create"
+      echo "✅ Model $LLM_MODEL already available"
     fi
-  elif [ "$DATASET_CHECK" = "200" ]; then
-    echo "  ✅ Dataset exists"
   else
-    echo "  ⚠️  Could not check dataset (HTTP $DATASET_CHECK)"
+    echo "ℹ️  Using external Ollama at $OLLAMA_BASE_URL"
+    # Verify external Ollama is reachable
+    if curl -sf "$OLLAMA_BASE_URL/api/health" > /dev/null 2>&1; then
+      echo "✅ External Ollama health check passed"
+    else
+      echo "⚠️  Warning: Cannot reach external Ollama at $OLLAMA_BASE_URL"
+    fi
   fi
   
-  # Restore workspace
-  echo "📦 Restoring workspace..."
-  WORKSPACE="/home/node/.openclaw/workspace"
-  GIT_USER_EMAIL="${WORKSPACE_GIT_USER:-openclaw@example.com}"
-  GIT_USER_NAME="${WORKSPACE_GIT_NAME:-OpenClaw Bot}"
-  
-  cd "$WORKSPACE"
-  if [ ! -d ".git" ]; then
-    git init -q
-    git remote add origin "$BACKUP_URL"
-  else
-    git remote set-url origin "$BACKUP_URL"
-  fi
-  
-  git config user.email "$GIT_USER_EMAIL"
-  git config user.name "$GIT_USER_NAME"
-  
-  if git fetch origin main 2>/dev/null; then
-    git reset --hard origin/main 2>/dev/null && echo "  ✅ Workspace restored!"
-  else
-    echo "  ⚠️ No remote data yet, starting fresh."
-  fi
-  cd /
+  # Set LLM provider to Ollama
+  export LLM_PROVIDER="ollama"
+  export OLLAMA_HOST="${OLLAMA_HOST:-$OLLAMA_BASE_URL}"
+else
+  echo "☁️  Cloud LLM mode"
+  echo "   Model: $LLM_MODEL"
 fi
 
-# ── Restore persisted OpenClaw state (if present) ──
-STATE_BACKUP_ROOT="/home/node/.openclaw/workspace/.huggingclaw-state/openclaw"
-if [ -d "$STATE_BACKUP_ROOT" ]; then
-  echo "🧠 Restoring OpenClaw state..."
-  for source_path in "$STATE_BACKUP_ROOT"/*; do
-    [ -e "$source_path" ] || continue
-    name="$(basename "$source_path")"
-    target_path="/home/node/.openclaw/${name}"
+# ── Generate OpenClaw Configuration ──
+echo ""
+echo "📝 Generating OpenClaw configuration..."
 
-    rm -rf "$target_path"
-    mkdir -p "$(dirname "$target_path")"
-    cp -R "$source_path" "$target_path"
-  done
-  echo "  ✅ OpenClaw state restored"
-fi
+CONFIG_DIR="/home/node/.openclaw"
+mkdir -p "$CONFIG_DIR"
 
-# ── Restore persisted WhatsApp credentials (if present) ──
-WA_BACKUP_DIR="/home/node/.openclaw/workspace/.huggingclaw-state/credentials/whatsapp/default"
-WA_CREDS_DIR="/home/node/.openclaw/credentials/whatsapp/default"
-if[ "$WHATSAPP_ENABLED_NORMALIZED" = "true" ] &&[ -d "$WA_BACKUP_DIR" ]; then
-  WA_FILE_COUNT=$(find "$WA_BACKUP_DIR" -type f | wc -l | tr -d ' ')
-  if [ "$WA_FILE_COUNT" -ge 2 ]; then
-    echo "📱 Restoring WhatsApp credentials..."
-    rm -rf "$WA_CREDS_DIR"
-    mkdir -p "$(dirname "$WA_CREDS_DIR")"
-    cp -R "$WA_BACKUP_DIR" "$WA_CREDS_DIR"
-    chmod -R go-rwx /home/node/.openclaw/credentials/whatsapp 2>/dev/null || true
-    echo "  ✅ WhatsApp credentials restored"
-  else
-    echo "  ⚠️  Saved WhatsApp credentials look incomplete (${WA_FILE_COUNT} files), skipping restore."
-  fi
-fi
-
-# ── Build config ──
-CONFIG_JSON=$(cat <<'CONFIGEOF'
+# Create openclaw.json configuration
+cat > "$CONFIG_DIR/openclaw.json" << EOF
 {
   "gateway": {
-    "mode": "local",
-    "port": 7860,
-    "bind": "lan",
-    "auth": {
-      "token": ""
-    },
-    "controlUi": {
-      "allowInsecureAuth": true,
-      "basePath": "/app"
-    },
-    "trustedProxies":["127.0.0.1/8", "::1/128", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
+    "token": "$GATEWAY_TOKEN",
+    "port": 7860
   },
-  "channels": {},
-  "plugins": {
-    "entries": {}
+  "llm": {
+    "provider": "${LLM_PROVIDER:-auto}",
+    "model": "$LLM_MODEL",
+    "apiKey": "${LLM_API_KEY:-}",
+    "baseUrl": "${OLLAMA_ENABLED:+$OLLAMA_BASE_URL}"
+  },
+  "channels": {
+    "telegram": {
+      "enabled": ${TELEGRAM_BOT_TOKEN:+true:-false},
+      "botToken": "${TELEGRAM_BOT_TOKEN:-}",
+      "allowedUserIds": [${TELEGRAM_USER_ID:+\"$TELEGRAM_USER_ID\"}${TELEGRAM_USER_IDS:+,\"$TELEGRAM_USER_IDS\"}]
+    },
+    "whatsapp": {
+      "enabled": $WHATSAPP_ENABLED_NORMALIZED
+    }
+  },
+  "workspace": {
+    "path": "/home/node/.openclaw/workspace",
+    "sync": {
+      "enabled": ${HF_TOKEN:+true:-false},
+      "interval": $SYNC_INTERVAL,
+      "hfUsername": "${HF_USERNAME:-}",
+      "hfToken": "${HF_TOKEN:-}",
+      "datasetName": "${BACKUP_DATASET_NAME:-huggingclaw-backup}"
+    }
   }
 }
-CONFIGEOF
-)
+EOF
 
-# ── Handle Ollama-based local models ──
-if [ "$OLLAMA_ENABLED" = "true" ]; then
-  # Ensure endpoint is set in environment (used below in jq)
-  export OLLAMA_ENDPOINT="${OLLAMA_ENDPOINT:-http://127.0.0.1:11434}"
-  echo "  ✅ Ollama endpoint injected: $OLLAMA_ENDPOINT"
+echo "✅ Configuration saved to $CONFIG_DIR/openclaw.json"
 
-  # Add to system config: allow OpenClaw to use Ollama via `ollama/...`
-  # Note: OpenClaw interprets model=ollama/llama3 as "use Ollama provider"
-  # If model is already `ollama/...`, this is no-op. If not, we've auto-updated above.
+# ── Workspace Setup ──
+WORKSPACE_DIR="/home/node/.openclaw/workspace"
+mkdir -p "$WORKSPACE_DIR"
 
-  # Optional: Set default Ollama cache path (to reduce disk churn on Space)
-  export OLLAMA_CACHE_DIR="/home/node/.ollama/cache"
-  mkdir -p "$OLLAMA_CACHE_DIR"
-fi
-
-# Gateway token
-CONFIG_JSON=$(echo "$CONFIG_JSON" | jq ".gateway.auth.token = \"$GATEWAY_TOKEN\"")
-
-# Model configuration at top level
-CONFIG_JSON=$(echo "$CONFIG_JSON" | jq ".agents.defaults.model = \"$LLM_MODEL\"")
-
-# Browser configuration (managed local Chromium in HF/Docker)
-BROWSER_EXECUTABLE_PATH=""
-for candidate in /usr/bin/chromium /usr/bin/chromium-browser /snap/bin/chromium; do
-  if[ -x "$candidate" ]; then
-    BROWSER_EXECUTABLE_PATH="$candidate"
-    break
-  fi
-done
-
-BROWSER_SHOULD_ENABLE=false
-if[ -n "$BROWSER_EXECUTABLE_PATH" ] && [ -x "$BROWSER_EXECUTABLE_PATH" ]; then
-  BROWSER_SHOULD_ENABLE=true
-fi
-
-if [ "$BROWSER_SHOULD_ENABLE" = "true" ]; then
-  CONFIG_JSON=$(echo "$CONFIG_JSON" | jq \
-    ".browser = {
-      \"enabled\": true,
-      \"defaultProfile\": \"openclaw\",
-      \"headless\": true,
-      \"noSandbox\": true,
-      \"executablePath\": \"$BROWSER_EXECUTABLE_PATH\"
-    } | .agents.defaults.sandbox.browser.allowHostControl = true")
-fi
-
-# Control UI origin (allow HF Space URL for web UI access)
-if [ -n "$SPACE_HOST" ]; then
-  CONFIG_JSON=$(echo "$CONFIG_JSON" | jq ".gateway.controlUi.allowedOrigins =[\"https://${SPACE_HOST}\"]")
-fi
-
-# Disable device auth (pairing) for headless Docker — token-only auth
-CONFIG_JSON=$(echo "$CONFIG_JSON" | jq ".gateway.controlUi.dangerouslyDisableDeviceAuth = true")
-
-# Password auth (optional — simpler alternative to token for casual users)
-if[ -n "$OPENCLAW_PASSWORD" ]; then
-  CONFIG_JSON=$(echo "$CONFIG_JSON" | jq ".gateway.auth.mode = \"password\" | .gateway.auth.password = \"$OPENCLAW_PASSWORD\"")
-fi
-
-# Trusted proxies (optional — fixes "Proxy headers detected from untrusted address" on HF Spaces)
-# Set TRUSTED_PROXIES as comma-separated IPs/CIDRs, e.g. "10.20.31.87,10.20.26.157"
-# Loopback proxies stay trusted by default so the local dashboard reverse proxy works correctly.
-if[ -n "$TRUSTED_PROXIES" ]; then
-  PROXIES_JSON=$(echo "$TRUSTED_PROXIES" | tr ',' '\n' | sed 's/^ *//;s/ *$//' | jq -R . | jq -s .)
-  CONFIG_JSON=$(echo "$CONFIG_JSON" | jq ".gateway.trustedProxies += $PROXIES_JSON | .gateway.trustedProxies |= unique")
-fi
-
-# Allowed origins (optional — lock down Control UI to specific URLs)
-# Set ALLOWED_ORIGINS as comma-separated URLs, e.g. "https://your-space.hf.space"
-if[ -n "$ALLOWED_ORIGINS" ]; then
-  ORIGINS_JSON=$(echo "$ALLOWED_ORIGINS" | tr ',' '\n' | sed 's/^ *//;s/ *$//' | jq -R . | jq -s .)
-  CONFIG_JSON=$(echo "$CONFIG_JSON" | jq ".gateway.controlUi.allowedOrigins = $ORIGINS_JSON")
-fi
-
-# Telegram (supports multiple user IDs, comma-separated)
-if[ -n "$TELEGRAM_BOT_TOKEN" ]; then
-  CONFIG_JSON=$(echo "$CONFIG_JSON" | jq '.plugins.entries.telegram = {"enabled": true}')
-  export TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN"
-  
-  if [ -n "$TELEGRAM_USER_IDS" ]; then
-    # Convert comma-separated IDs to JSON array
-    IDS_JSON=$(echo "$TELEGRAM_USER_IDS" | tr ',' '\n' | sed 's/^ *//;s/ *$//' | jq -R . | jq -s .)
-    CONFIG_JSON=$(echo "$CONFIG_JSON" | jq ".channels.telegram = {\"dmPolicy\": \"allowlist\", \"allowFrom\": $IDS_JSON}")
-  elif [ -n "$TELEGRAM_USER_ID" ]; then
-    # Single user (backward compatible)
-    CONFIG_JSON=$(echo "$CONFIG_JSON" | jq ".channels.telegram = {\"dmPolicy\": \"allowlist\", \"allowFrom\": [\"$TELEGRAM_USER_ID\"]}")
-  fi
-fi
-
-# WhatsApp (optional)
-if [ "$WHATSAPP_ENABLED_NORMALIZED" = "true" ]; then
-  CONFIG_JSON=$(echo "$CONFIG_JSON" | jq '.plugins.entries.whatsapp = {"enabled": true}')
-  CONFIG_JSON=$(echo "$CONFIG_JSON" | jq '.channels.whatsapp = {"dmPolicy": "pairing"}')
-fi
-
-# Write config
-echo "$CONFIG_JSON" > "/home/node/.openclaw/openclaw.json"
-chmod 600 /home/node/.openclaw/openclaw.json
-
-# ── Enable Gateway Preload Fixes ──
-# This preload script keeps iframe embedding working on HF Spaces.
-export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--require /home/node/app/iframe-fix.cjs"
-
-# ── Patch OpenClaw scope-clearing bug for headless HF auth ──
-# OpenClaw can clear requested operator scopes after allowing a token-auth
-# connection without device identity, which breaks the WhatsApp guardian's
-# web.login.wait / channels.status calls on Spaces.
-patch_openclaw_scope_bug() {
-  local roots=(
-    "/home/node/.openclaw/openclaw-app"
-    "/usr/local/lib/node_modules/openclaw"
-  )
-  local target=""
-  local updated=0
-
-  for root in "${roots[@]}"; do
-    [ -d "$root/dist" ] || continue
-    target=$(find "$root/dist" -maxdepth 1 -type f -name 'gateway-cli-*.js' | head -n 1)
-    [ -n "$target" ] || continue
-
-    if grep -q 'return params.decision.kind !== "allow" || !params.controlUiAuthPolicy.allowBypass' "$target"; then
-      perl -0pi -e 's@return params\.decision\.kind !== "allow" \|\| !params\.controlUiAuthPolicy\.allowBypass && !params\.preserveInsecureLocalControlUiScopes && \(params\.authMethod === "token" \|\| params\.authMethod === "password" \|\| params\.authMethod === "trusted-proxy" \|\| params\.trustedProxyAuthOk === true\);@return params.decision.kind !== "allow";@g' "$target"
-
-      if grep -q 'return params.decision.kind !== "allow";' "$target"; then
-        echo "🔧 Patched OpenClaw scope-clearing bug in $(basename "$target")"
-        updated=1
-        break
-      fi
-    fi
-  done
-
-  if[ "$updated" -eq 0 ]; then
-    echo "⚠️  OpenClaw scope patch not applied (bundle format may have changed)"
-  fi
-}
-
-patch_openclaw_scope_bug
-
-# ── Startup Summary ──
-echo ""
-echo "  ┌──────────────────────────────────────────┐"
-echo "  │  📋 Configuration Summary                │"
-echo "  ├──────────────────────────────────────────┤"
-printf "  │  %-40s │\n" "OpenClaw: $OPENCLAW_VERSION"
-printf "  │  %-40s │\n" "Model: $LLM_MODEL"
- if[ "$OLLAMA_ENABLED" = "true" ]; then
-+  printf "  │  %-40s │\n" "Ollama: ✅ $OLLAMA_MODEL"
-+  if[ "$USE_EXTERNAL_OLLAMA" = "true" ]; then
-+    printf "  │  %-40s │\n" "Ollama endpoint: $OLLAMA_BASE_URL"
-+  else
-+    printf "  │  %-40s │\n" "Ollama local: ${OLLAMA_HOST:-127.0.0.1:11434}"
-+  fi
- else
--  printf "  │  %-40s │\n" "Ollama: ❌ disabled"
-+  printf "  │  %-40s │\n" "Ollama: 🚫 not enabled"
- fi
-if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
-printf "  │  %-40s │\n" "Telegram: ✅ enabled"
-else
-printf "  │  %-40s │\n" "Telegram: ❌ not configured"
-fi
-if[ "$WHATSAPP_ENABLED_NORMALIZED" = "true" ]; then
-printf "  │  %-40s │\n" "WhatsApp: ✅ enabled"
-else
-printf "  │  %-40s │\n" "WhatsApp: ❌ disabled"
-fi
-if [ "$BROWSER_SHOULD_ENABLE" = "true" ]; then
-printf "  │  %-40s │\n" "Browser: ✅ ${BROWSER_EXECUTABLE_PATH}"
-else
-printf "  │  %-40s │\n" "Browser: ❌ unavailable"
-fi
-if [ -n "$HF_USERNAME" ] && [ -n "$HF_TOKEN" ]; then
-printf "  │  %-40s │\n" "Backup: ✅ ${HF_USERNAME}/${BACKUP_DATASET:-huggingclaw-backup}"
-else
-printf "  │  %-40s │\n" "Backup: ❌ not configured"
-fi
-if[ -n "$OPENCLAW_PASSWORD" ]; then
-printf "  │  %-40s │\n" "Auth: 🔑 password"
-else
-printf "  │  %-40s │\n" "Auth: 🔐 token"
-fi
-if [ -n "$SPACE_HOST" ]; then
-printf "  │  %-40s │\n" "Control UI: https://${SPACE_HOST}/app"
-printf "  │  %-40s │\n" "Dashboard: https://${SPACE_HOST}"
-fi
-SYNC_STATUS="❌ disabled"
-if [ -n "$HF_USERNAME" ] && [ -n "$HF_TOKEN" ]; then
-  SYNC_STATUS="✅ every ${SYNC_INTERVAL:-180}s"
-fi
-printf "  │  %-40s │\n" "Auto-sync: $SYNC_STATUS"
-if[ -n "$WEBHOOK_URL" ]; then
-printf "  │  %-40s │\n" "Webhooks: ✅ enabled"
-fi
-echo "  └──────────────────────────────────────────┘"
-echo ""
-
-# ── Trigger Webhook on Restart ──
-if [ -n "$WEBHOOK_URL" ]; then
-  echo "🔔 Sending restart webhook..."
-  curl -s -X POST "$WEBHOOK_URL" \
-       -H "Content-Type: application/json" \
-       -d '{"event":"restart", "status":"success", "message":"HuggingClaw gateway has started/restarted.", "model": "'"$LLM_MODEL"'"}' >/dev/null 2>&1 &
-fi
-
-# ── Trap SIGTERM for graceful shutdown ──
-graceful_shutdown() {
+# Restore workspace from HF Dataset if credentials provided
+if [ -n "$HF_TOKEN" ] && [ -n "$HF_USERNAME" ]; then
   echo ""
-  echo "🛑 Shutting down gracefully..."
+  echo "💾 Restoring workspace from HuggingFace Dataset..."
+  python3 /home/node/app/workspace-sync.py restore || {
+    echo "⚠️  Workspace restore failed, continuing with empty workspace"
+  }
+fi
 
-  if [ -f "/home/node/app/workspace-sync.py" ]; then
-    echo "💾 Saving OpenClaw state before exit..."
-    python3 /home/node/app/workspace-sync.py --sync-once || \
-      echo "  ⚠️ Could not complete shutdown sync"
-  fi
-  
-  # Kill background processes
-  kill $(jobs -p) 2>/dev/null
-  echo "👋 Goodbye!"
-  exit 0
-}
-trap graceful_shutdown SIGTERM SIGINT
+# ── Start Background Services ──
+echo ""
+echo "🔧 Starting background services..."
 
-warmup_browser() {
-  [ "$BROWSER_SHOULD_ENABLE" = "true" ] || return 0
-
-  (
-    sleep 5
-
-    local attempt
-    for attempt in 1 2 3 4 5; do
-      if openclaw browser --browser-profile openclaw start >/dev/null 2>&1; then
-        openclaw browser --browser-profile openclaw open about:blank >/dev/null 2>&1 || true
-        echo "  ✅ Managed browser ready"
-        return 0
-      fi
-      sleep 2
-    done
-
-    echo "  ⚠️ Managed browser warm-up did not complete; first browser action may need a retry"
-  ) &
-}
-
-# ── Start background services ──
-export LLM_MODEL="$LLM_MODEL"
-# 10. Start Health Server & Dashboard
+# Start health server for uptime monitoring
 node /home/node/app/health-server.js &
 HEALTH_PID=$!
+echo "✅ Health server started (PID: $HEALTH_PID)"
 
-# ── Launch gateway ──
-echo "🚀 Launching OpenClaw gateway on port 7860..."
+# Start WhatsApp guardian if enabled
+if [ "$WHATSAPP_ENABLED_NORMALIZED" = "true" ]; then
+  node /home/node/app/wa-guardian.js &
+  WA_PID=$!
+  echo "✅ WhatsApp guardian started (PID: $WA_PID)"
+fi
+
+# Start workspace sync if HF credentials provided
+if [ -n "$HF_TOKEN" ] && [ -n "$HF_USERNAME" ]; then
+  echo "🔄 Starting workspace auto-sync (interval: ${SYNC_INTERVAL}s)"
+  while true; do
+    sleep "$SYNC_INTERVAL"
+    python3 /home/node/app/workspace-sync.py sync || true
+  done &
+  SYNC_PID=$!
+  echo "✅ Workspace sync started (PID: $SYNC_PID)"
+fi
+
+# ── Launch OpenClaw Gateway ──
+echo ""
+echo "🚀 Launching OpenClaw Gateway..."
+echo "   Version: $OPENCLAW_VERSION"
+echo "   Port: 7860"
+echo "   Control UI: http://localhost:7860"
+echo ""
+echo "════════════════════════════════════════════"
+echo "  🦞 HuggingClaw is ready!"
+echo "════════════════════════════════════════════"
 echo ""
 
-GATEWAY_ARGS=(gateway run --port 7860 --bind lan)
-if[ "${GATEWAY_VERBOSE:-0}" = "1" ]; then
-  GATEWAY_ARGS+=(--verbose)
-  echo "🔎 Gateway verbose logging enabled (GATEWAY_VERBOSE=1)"
-fi
-
-openclaw "${GATEWAY_ARGS[@]}" 2>&1 | tee -a /home/node/.openclaw/gateway.log &
-GATEWAY_PID=$!
-
-# Wait a moment for startup errors
-sleep 3
-if ! kill -0 $GATEWAY_PID 2>/dev/null; then
-  echo ""
-  echo "❌ Gateway failed to start. Last 30 lines of log:"
-  echo "────────────────────────────────────────────"
-  tail -30 /home/node/.openclaw/gateway.log
-  exit 1
-fi
-
-# 11. Start WhatsApp Guardian after the gateway is accepting connections
-if[ "$WHATSAPP_ENABLED_NORMALIZED" = "true" ]; then
-  node /home/node/app/wa-guardian.js &
-  GUARDIAN_PID=$!
-  echo "🛡️ WhatsApp Guardian started (PID: $GUARDIAN_PID)"
-fi
-
-# 11.5 Warm up the managed browser so first browser actions have a live tab
-warmup_browser
-
-# 12. Start Workspace Sync after startup settles
-python3 -u /home/node/app/workspace-sync.py &
-
-# Wait for gateway (allows trap to fire)
-wait $GATEWAY_PID
+# Execute OpenClaw
+exec openclaw gateway --config "$CONFIG_DIR/openclaw.json"
