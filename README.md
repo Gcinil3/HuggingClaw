@@ -65,14 +65,22 @@ Click the button above to duplicate the template.
 
 ### Step 2: Add Your Secrets
 
-Navigate to your new Space's **Settings**, scroll down to the **Variables and secrets** section, and add the following three under **Secrets**:
+Navigate to your new Space's **Settings**, scroll down to the **Variables and secrets** section, and add the following secrets:
+
+#### For Cloud LLMs (Anthropic, OpenAI, Google, etc.):
 
 - `LLM_API_KEY` – Your provider API key (e.g., Anthropic, OpenAI, OpenRouter).
 - `LLM_MODEL` – The model ID string you wish to use (e.g., `openai/gpt-4o` or `google/gemini-2.5-flash`).
 - `GATEWAY_TOKEN` – A custom password or token to secure your Control UI. *(You can use any strong password, or generate one with `openssl rand -hex 32` if you prefer).*
 
+#### For Ollama (Local LLM - No API Key Required):
+
+- `OLLAMA_ENABLED` – Set to `true` (as a **Secret**)
+- `OLLAMA_MODEL` – The Ollama model to use (e.g., `llama3`, `tinyllama`, `mistral`). Default: `tinyllama`
+- `GATEWAY_TOKEN` – A custom password or token to secure your Control UI.
+
 > [!TIP]
-> HuggingClaw is completely flexible! You only need these three secrets to get started. You can set other secrets later.
+> When using Ollama (`OLLAMA_ENABLED=true`), you do **NOT** need to set `LLM_API_KEY`. The Ollama server runs locally inside your Space container.
 
 Optional: if you want to pin a specific OpenClaw release instead of `latest`, add `OPENCLAW_VERSION` under **Variables** in your Space settings. For Docker Spaces, HF passes Variables as build args during image build, so this should be a Variable, not a Secret.
 
@@ -175,7 +183,9 @@ Configure password access and network restrictions:
 
 ## 🤖 LLM Providers
 
-HuggingClaw supports **all providers** from OpenClaw. Set `LLM_MODEL=<provider/model>` and the provider is auto-detected. For example:
+HuggingClaw supports **all providers** from OpenClaw, plus local Ollama models. Set `LLM_MODEL=<provider/model>` and the provider is auto-detected. For example:
+
+### ☁️ Cloud Providers
 
 | Provider         | Prefix          | Example Model                         | API Key Source                                       |
 | :--------------- | :-------------- | :------------------------------------ | :--------------------------------------------------- |
@@ -197,7 +207,35 @@ HuggingClaw supports **all providers** from OpenClaw. Set `LLM_MODEL=<provider/m
 | **OpenCode Go**  | `opencode-go/`  | `opencode-go/kimi-k2.5`               | [OpenCode.ai](https://opencode.ai/auth)              |
 | **Kilo Gateway** | `kilocode/`     | `kilocode/anthropic/claude-opus-4.6`  | [Kilo.ai](https://kilo.ai)                           |
 
-### OpenRouter – 200+ Models with One Key
+### 🏠 Ollama (Local LLM - No API Key Required)
+
+To use Ollama instead of cloud providers:
+
+1. Set `OLLAMA_ENABLED=true` in your HF Spaces Secrets
+2. Optionally set `OLLAMA_MODEL` to your preferred model (default: `tinyllama`)
+3. **No API key needed** - Ollama runs locally inside your container
+
+| Model | Description | Size |
+| :---- | :---------- | :--- |
+| `tinyllama` | Lightweight, fast (default) | ~1GB |
+| `llama3` | Meta's Llama 3 | ~4GB |
+| `llama3.1` | Updated Llama 3.1 | ~4GB |
+| `mistral` | Mistral 7B | ~4GB |
+| `phi3` | Microsoft Phi-3 | ~2GB |
+| `gemma2` | Google Gemma 2 | ~5GB |
+| `qwen2.5` | Alibaba Qwen 2.5 | ~7GB |
+
+See [ollama.ai/library](https://ollama.ai/library) for the full list of available models.
+
+**Example configuration for Ollama:**
+```bash
+OLLAMA_ENABLED=true
+OLLAMA_MODEL=llama3
+# LLM_API_KEY not required!
+GATEWAY_TOKEN=your_secure_token
+```
+
+### 🔀 OpenRouter – 200+ Models with One Key
 
 Get an [OpenRouter](https://openrouter.ai) API key to use *all* providers. For example:
 

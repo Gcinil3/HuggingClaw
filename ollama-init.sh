@@ -4,7 +4,7 @@ set -e
 echo "🚀 HuggingClaw: Initializing Ollama..."
 
 # Skip if external Ollama configured
-if[ "$USE_EXTERNAL_OLLAMA" = "true" ]; then
+if [ "$USE_EXTERNAL_OLLAMA" = "true" ]; then
   echo "ℹ️ Using external Ollama at $OLLAMA_BASE_URL"
   if curl -sf "$OLLAMA_BASE_URL/api/health" > /dev/null 2>&1; then
     echo "✅ External Ollama health check ok"
@@ -51,7 +51,7 @@ for i in {1..90}; do
   done
 
   # While waiting, show startup progress (last 2 lines of log)
-  if[ -f "$OLLAMA_ROOT/ollama.log" ] && (( i % 10 == 0 )); then
+  if [ -f "$OLLAMA_ROOT/ollama.log" ] && (( i % 10 == 0 )); then
     echo "   ... still starting — last log lines:"
     tail -2 "$OLLAMA_ROOT/ollama.log" | sed 's/^/   /'
   fi
