@@ -1,10 +1,1 @@
-```
-# Environment variables
-.env.local
-
-# Logs
-*.log
-
-# Original rules preserved
-*.log
-```
+Nothing needs to be added to the .gitignore file based on the provided changes. The modification of 'start.sh' does not require any new ignore rules, as it appears to be a source script file that should be tracked in version control.
