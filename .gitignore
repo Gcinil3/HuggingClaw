@@ -9,27 +9,27 @@
 *.log
 ```
 
-+++ .gitignore
++++ .gitignore (修改后)
 *.pyc
 __pycache__/
 *.log
 .env
 .env.local
 .vscode/
+.idea/
+*.tmp
+*.swp
+.DS_Store
+Thumbs.db
 node_modules/
+venv/
+.venv/
+.mypy_cache/
+.pytest_cache/
 dist/
 build/
 target/
 .gradle/
-.mypy_cache/
-.pytest_cache/
-coverage/
-htmlcov/
-*.tmp
-*.swp
-*.swo
-.DS_Store
-Thumbs.db
 *.zip
 *.gz
 *.tar
@@ -52,3 +52,15 @@ Thumbs.db
 *.tar.bz2
 *.tar.xz
 *.tar.zst
+*.class
+*.dll
+*.so
+*.a
+*.out
+coverage/
+htmlcov/
+.coverage
+*.exe
+*.o
+.julia/
+zig*/
