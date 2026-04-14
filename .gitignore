@@ -1,3 +1,4 @@
+--- .gitignore (原始)
 ```
 # Environment variables
 .env.local
@@ -12,15 +13,13 @@
 +++ .gitignore (修改后)
 *.pyc
 __pycache__/
-*.log
-.env
-.env.local
-.vscode/
-.idea/
-*.tmp
-*.swp
-.DS_Store
-Thumbs.db
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.a
+*.out
 node_modules/
 venv/
 .venv/
@@ -30,6 +29,19 @@ dist/
 build/
 target/
 .gradle/
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
+.DS_Store
+Thumbs.db
+.env
+.env.local
+*.env.*
+*.log
+coverage/
+htmlcov/
 *.zip
 *.gz
 *.tar
@@ -52,15 +64,3 @@ target/
 *.tar.bz2
 *.tar.xz
 *.tar.zst
-*.class
-*.dll
-*.so
-*.a
-*.out
-coverage/
-htmlcov/
-.coverage
-*.exe
-*.o
-.julia/
-zig*/
