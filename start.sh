@@ -1,3 +1,4 @@
+--- start.sh (原始)
 #!/bin/bash
 set -e
 
@@ -215,6 +216,7 @@ echo ""
 # Execute OpenClaw
 exec openclaw gateway --config "$CONFIG_DIR/openclaw.json"
 
++++ start.sh (修改后)
 #!/bin/bash
 set -e
 
